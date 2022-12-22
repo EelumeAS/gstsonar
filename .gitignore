@@ -1,0 +1,7 @@
+*.swp
+*.swo
+/build
+*.sbd
+*.SBD
+*.bin
+*.out
