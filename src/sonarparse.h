@@ -30,6 +30,8 @@ struct _GstSonarparse
   guint32 n_beams;
   guint32 resolution;
   guint32 framerate;
+
+  guint64 initial_time;
 };
 
 struct _GstSonarparseClass
