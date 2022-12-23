@@ -27,6 +27,8 @@ struct _GstSonarconvert
   GstBaseTransform basetransform;
 
   /* < private > */
+  guint32 n_beams;
+  guint32 resolution;
 };
 
 struct _GstSonarconvertClass

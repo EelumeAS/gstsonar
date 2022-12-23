@@ -266,4 +266,7 @@ gst_sonarparse_class_init (GstSonarparseClass * klass)
 static void
 gst_sonarparse_init (GstSonarparse * sonarparse)
 {
+  sonarparse->n_beams = 0;
+  sonarparse->resolution = 0;
+  sonarparse->framerate = 0;
 }
