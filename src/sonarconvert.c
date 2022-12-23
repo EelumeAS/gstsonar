@@ -18,6 +18,7 @@
 #include <sys/time.h>
 
 #include <gst/base/gstbytereader.h>
+#include <gst/video/video.h>
 
 inline double ms()
 {
@@ -66,6 +67,15 @@ gst_sonarconvert_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf
 
   GST_OBJECT_LOCK (sonarconvert);
 
+  GST_DEBUG_OBJECT(sonarconvert, "n_beams: %d, resolution: %d", sonarconvert->n_beams, sonarconvert->resolution);
+
+  const gssize offset = sizeof(packet_header_t) + sizeof(fls_data_header_t);
+  const gssize size = sonarconvert->n_beams * sonarconvert->resolution * sizeof(guint16);// + sonarconvert->n_beams * sizeof(float);
+  gst_buffer_resize(buf, offset, size);
+
+  //GstVideoFormat fmt = gst_video_format_from_string("GRAY8");
+  //gst_buffer_add_video_meta(buf, GST_VIDEO_FRAME_FLAG_NONE, fmt, sonarconvert->n_beams, sonarconvert->resolution);
+  //GST_DEBUG_OBJECT(sonarconvert, "fmt: %s", gst_video_format_to_string(fmt));
 
   GST_OBJECT_UNLOCK (sonarconvert);
 
@@ -100,25 +110,35 @@ gst_sonarconvert_transform_caps (GstBaseTransform * basetransform, GstPadDirecti
   else if (direction == GST_PAD_SINK)
   {
     GstStructure *s = gst_caps_get_structure (caps, 0);
-    const GValue *framerate, *n_beams, *resolution;
+    const GValue *v_framerate, *v_n_beams, *v_resolution;
 
     GST_DEBUG_OBJECT(sonarconvert, "sink structure: %s\n", gst_structure_to_string(s));
 
-    if (((framerate = gst_structure_get_value(s, "framerate")) == NULL)
-      || (!GST_VALUE_HOLDS_FRACTION (framerate))
-      || ((n_beams = gst_structure_get_value(s, "n_beams")) == NULL)
-      || (!G_VALUE_HOLDS_INT (n_beams))
-      || ((resolution = gst_structure_get_value(s, "resolution")) == NULL)
-      || (!G_VALUE_HOLDS_INT (resolution)))
+    if (((v_framerate = gst_structure_get_value(s, "framerate")) == NULL)
+      || (!GST_VALUE_HOLDS_FRACTION (v_framerate))
+      || ((v_n_beams = gst_structure_get_value(s, "n_beams")) == NULL)
+      || (!G_VALUE_HOLDS_INT (v_n_beams))
+      || ((v_resolution = gst_structure_get_value(s, "resolution")) == NULL)
+      || (!G_VALUE_HOLDS_INT (v_resolution)))
     {
       GST_DEBUG_OBJECT(sonarconvert, "no details in caps\n");
 
       return gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "GRAY8", NULL);
     }
 
-    GST_DEBUG_OBJECT (sonarconvert, "got caps details framerate: %d/%d, n_beams: %d, resolution: %d", gst_value_get_fraction_numerator (framerate), gst_value_get_fraction_denominator (framerate), g_value_get_int(n_beams), g_value_get_int(resolution));
+    guint32 framerate_n = gst_value_get_fraction_numerator (v_framerate);
+    guint32 framerate_d = gst_value_get_fraction_denominator (v_framerate);
+    guint32 n_beams = g_value_get_int (v_n_beams);
+    guint32 resolution = g_value_get_int (v_resolution);
 
-    return gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "GRAY8", "width", G_TYPE_INT, g_value_get_int(n_beams), "height", G_TYPE_INT, g_value_get_int(resolution), "framerate", GST_TYPE_FRACTION, gst_value_get_fraction_numerator(framerate), gst_value_get_fraction_denominator(framerate), NULL);
+    GST_OBJECT_LOCK (sonarconvert);
+    sonarconvert->n_beams = n_beams;
+    sonarconvert->resolution = resolution;
+    GST_OBJECT_UNLOCK (sonarconvert);
+
+    GST_DEBUG_OBJECT(sonarconvert, "got caps details framerate: %d/%d, n_beams: %d, resolution: %d", framerate_n, framerate_d, n_beams, resolution);
+
+    return gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "GRAY8", "width", G_TYPE_INT, n_beams, "height", G_TYPE_INT, resolution, "framerate", GST_TYPE_FRACTION, framerate_n, framerate_d, NULL);
   }
 }
 
@@ -188,4 +208,6 @@ gst_sonarconvert_class_init (GstSonarconvertClass * klass)
 static void
 gst_sonarconvert_init (GstSonarconvert * sonarconvert)
 {
+  sonarconvert->n_beams = 0;
+  sonarconvert->resolution = 0;
 }

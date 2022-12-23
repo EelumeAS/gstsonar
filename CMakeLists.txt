@@ -6,7 +6,7 @@ project (sonar)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-base-1.0 gstreamer-allocators-1.0)
+pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-base-1.0 gstreamer-allocators-1.0 gstreamer-video-1.0)
 
 
 include_directories(src ${GST_INCLUDE_DIRS})
