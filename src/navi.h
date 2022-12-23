@@ -1,3 +1,4 @@
+#pragma once
 #include <stdint.h>
 #include <time.h>
 #include <sys/time.h>
@@ -7,7 +8,7 @@
 //#define static_assert(...) void static_assert_helper(const char [__COUNTER__]) {_Static_assert(__VA_ARGS__); }
 #define static_assert(...)
 
-uint64_t nanoseconds() {
+inline uint64_t nanoseconds() {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
 
