@@ -7,7 +7,7 @@
  * <refsect2>
  * <title>Example launch line</title>
  * |[
-  gst-launch-1.0 -v -e TODO
+  GST_PLUGIN_PATH=$(pwd) GST_DEBUG=sonarparse:5,sonarconvert:5 gst-launch-1.0 filesrc location=../in.sbd ! sonarparse ! fakesink
  * </refsect2>
  */
 
@@ -41,11 +41,12 @@ GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS ("sonar/multibeam, "
-        "format = (string) { norbit }, "
+        //"format = (string) { norbit }, "
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) [ 0, MAX ], "
         "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true")
+        //"parsed = (boolean) true"
+        )
     );
 
 static GstStaticPadTemplate gst_sonarparse_sink_template =
