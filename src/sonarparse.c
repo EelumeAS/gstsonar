@@ -7,14 +7,9 @@
  * <refsect2>
  * <title>Example launch line</title>
  * |[
-  gst-launch-1.0 -v -e fileparse location=test.sbd ! sonarparse ! TODO
+  gst-launch-1.0 -v -e TODO
  * </refsect2>
  */
-
-#define VERSION "1.0"
-#define PACKAGE "gst_sonarparse"
-#define GST_PACKAGE_NAME PACKAGE
-#define GST_PACKAGE_ORIGIN "Norway"
 
 #include "sonarparse.h"
 #include "navi.h"
@@ -46,10 +41,11 @@ GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS ("sonar/multibeam, "
-        "format = (string) { I420, Y41B, UYVY, YV12 }, "
+        "format = (string) { norbit }, "
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) [ 0, MAX ], "
-        "framerate = (fraction) [ 0/1, MAX ], " "parsed = (boolean) true")
+        "framerate = (fraction) [ 0/1, MAX ], "
+        "parsed = (boolean) true")
     );
 
 static GstStaticPadTemplate gst_sonarparse_sink_template =
@@ -70,13 +66,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
   //GST_WARNING_OBJECT(sonarparse, "%f", ms() - start);
   //start = ms();
 
-  GstClockTime timestamp, duration;
   GstMapInfo mapinfo;
-  gboolean header_ok;
-
-  timestamp = GST_BUFFER_PTS (frame->buffer);
-  duration = GST_BUFFER_DURATION (frame->buffer);
-
   if (!gst_buffer_map (frame->buffer, &mapinfo, GST_MAP_READ))
   {
     return GST_FLOW_ERROR;
@@ -262,8 +252,8 @@ gst_sonarparse_class_init (GstSonarparseClass * klass)
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonarparse",
       "Transform",
-      "Fix for double buffer bug in sonix c1/c1-pro cameras",
-      "Erlend Eriksen <erlend.eriksen@blueye.no>");
+      "TODO", // TODO
+      "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonarparse_sink_template);
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonarparse_src_template);
@@ -276,17 +266,3 @@ static void
 gst_sonarparse_init (GstSonarparse * sonarparse)
 {
 }
-
-static gboolean
-plugin_init (GstPlugin * plugin)
-{
-  if (!gst_element_register (plugin, "sonarparse", GST_RANK_NONE, gst_sonarparse_get_type()))
-    return FALSE;
-  return TRUE;
-}
-
-GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
-    GST_VERSION_MINOR,
-    sonarparse,
-          "Parse sonar data",
-    plugin_init, VERSION, "LGPL", GST_PACKAGE_NAME, GST_PACKAGE_ORIGIN);
