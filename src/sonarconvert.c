@@ -57,7 +57,7 @@ gst_sonarconvert_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf
 {
   GstSonarconvert *sonarconvert = GST_SONARCONVERT (basetransform);
 
-  GST_LOG_OBJECT(sonarconvert, "dts: %llu, pts: %llu", buf->dts, buf->pts);
+  GST_DEBUG_OBJECT(sonarconvert, "dts: %llu, pts: %llu", buf->dts, buf->pts);
 
   // profile time:
   //static double start = 0;

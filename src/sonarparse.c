@@ -144,7 +144,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
   if (sonarparse->initial_time == 0)
     sonarparse->initial_time = time;
 
-  GST_BUFFER_PTS (frame->buffer) = GST_BUFFER_DTS (frame->buffer) = time ;//- sonarparse->initial_time;
+  GST_BUFFER_PTS (frame->buffer) = GST_BUFFER_DTS (frame->buffer) = time - sonarparse->initial_time;
   GST_BUFFER_DURATION (frame->buffer) = (guint64)(1e9/sub_header->ping_rate);
 
   GST_LOG_OBJECT(sonarparse, "time: %f %llu\n", sub_header->time, GST_BUFFER_PTS (frame->buffer));
