@@ -7,7 +7,7 @@
  * <refsect2>
  * <title>Example launch line</title>
  * |[
-  gst-launch-1.0 -v -e TODO
+  GST_PLUGIN_PATH=$(pwd) GST_DEBUG=sonarparse:5,sonarconvert:5 gst-launch-1.0 filesrc location=../in.sbd ! sonarparse ! sonarconvert ! fakesink
  * </refsect2>
  */
 
@@ -38,7 +38,7 @@ static GstStaticPadTemplate gst_sonarconvert_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("image/x-raw, "
+    GST_STATIC_CAPS ("video/x-raw, "
         "format = (string) { GRAY8 }, "
         "width = (int) [ 0, MAX ],"
         "height = (int) [ 0, MAX ], "
@@ -49,12 +49,7 @@ static GstStaticPadTemplate gst_sonarconvert_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("sonar/multibeam, "
-        "format = (string) { norbit }, "
-        "n_beams = (int) [ 0, MAX ],"
-        "resolution = (int) [ 0, MAX ], "
-        "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true")
+    GST_STATIC_CAPS ("sonar/multibeam")
     );
 
 static GstFlowReturn
@@ -62,7 +57,7 @@ gst_sonarconvert_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf
 {
   GstSonarconvert *sonarconvert = GST_SONARCONVERT (basetransform);
 
-  GST_DEBUG_OBJECT(sonarconvert, "dts: %llu, pts: %llu", buf->dts, buf->pts);
+  GST_LOG_OBJECT(sonarconvert, "dts: %llu, pts: %llu", buf->dts, buf->pts);
 
   // profile time:
   //static double start = 0;
@@ -75,6 +70,56 @@ gst_sonarconvert_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf
   GST_OBJECT_UNLOCK (sonarconvert);
 
   return GST_FLOW_OK;
+}
+
+static GstCaps *
+gst_sonarconvert_transform_caps (GstBaseTransform * basetransform, GstPadDirection direction, GstCaps * caps, GstCaps * filter)
+{
+  GstSonarconvert *sonarconvert = GST_SONARCONVERT (basetransform);
+
+  if (filter)
+  {
+    GstStructure *tmps = gst_caps_get_structure (filter, 0);
+    GST_DEBUG_OBJECT(sonarconvert, "filter structure: %s", gst_structure_to_string(tmps));
+  }
+  else
+  {
+    GST_DEBUG_OBJECT(sonarconvert, "filter structure: <none>");
+  }
+
+  if (direction == GST_PAD_SRC)
+  {
+    GstStructure *s = gst_caps_get_structure (caps, 0);
+    GST_DEBUG_OBJECT(sonarconvert, "src structure: %s", gst_structure_to_string(s));
+
+    GstCaps *sink_caps = gst_caps_new_simple ("sonar/multibeam", NULL);
+    //GstCaps *sink_caps = gst_caps_new_simple ("sonar/multibeam", "n_beams", G_TYPE_INT, 0, "resolution", G_TYPE_INT, 0, "framerate", GST_TYPE_FRACTION, 0, 1, NULL);
+
+    return sink_caps;
+  }
+  else if (direction == GST_PAD_SINK)
+  {
+    GstStructure *s = gst_caps_get_structure (caps, 0);
+    const GValue *framerate, *n_beams, *resolution;
+
+    GST_DEBUG_OBJECT(sonarconvert, "sink structure: %s\n", gst_structure_to_string(s));
+
+    if (((framerate = gst_structure_get_value(s, "framerate")) == NULL)
+      || (!GST_VALUE_HOLDS_FRACTION (framerate))
+      || ((n_beams = gst_structure_get_value(s, "n_beams")) == NULL)
+      || (!G_VALUE_HOLDS_INT (n_beams))
+      || ((resolution = gst_structure_get_value(s, "resolution")) == NULL)
+      || (!G_VALUE_HOLDS_INT (resolution)))
+    {
+      GST_DEBUG_OBJECT(sonarconvert, "no details in caps\n");
+
+      return gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "GRAY8", NULL);
+    }
+
+    GST_DEBUG_OBJECT (sonarconvert, "got caps details framerate: %d/%d, n_beams: %d, resolution: %d", gst_value_get_fraction_numerator (framerate), gst_value_get_fraction_denominator (framerate), g_value_get_int(n_beams), g_value_get_int(resolution));
+
+    return gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "GRAY8", "width", G_TYPE_INT, g_value_get_int(n_beams), "height", G_TYPE_INT, g_value_get_int(resolution), "framerate", GST_TYPE_FRACTION, gst_value_get_fraction_numerator(framerate), gst_value_get_fraction_denominator(framerate), NULL);
+  }
 }
 
 static void
@@ -137,6 +182,7 @@ gst_sonarconvert_class_init (GstSonarconvertClass * klass)
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonarconvert_src_template);
 
   basetransform_class->transform_ip = GST_DEBUG_FUNCPTR (gst_sonarconvert_transform_ip);
+  basetransform_class->transform_caps = GST_DEBUG_FUNCPTR (gst_sonarconvert_transform_caps);
 }
 
 static void
