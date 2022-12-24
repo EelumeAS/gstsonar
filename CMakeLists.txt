@@ -19,6 +19,6 @@ IF(DEFINED ENV{IMXVPUTEXTOVERLAY_DEBUG})
 ELSE()
   set(GST_LIBRARIES "${GST_LIBRARIES}")
 ENDIF()
-target_link_libraries(gstsonar ${GST_LIBRARIES})
+target_link_libraries(gstsonar ${GST_LIBRARIES} -lGLEW -lGL -lSDL2)
 
 install(TARGETS gstsonar DESTINATION lib/gstreamer-1.0)
