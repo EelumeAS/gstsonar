@@ -3,7 +3,7 @@
 
 #include <gst/gst.h>
 
-#include <gst/video/gstvideosink.h>
+#include <gst/base/gstbasesink.h>
 
 G_BEGIN_DECLS
 
@@ -23,16 +23,19 @@ typedef struct _GstSonarsinkClass GstSonarsinkClass;
 
 struct _GstSonarsink
 {
-  GstVideoSink videosink;
+  GstBaseSink basesink;
 
   /* < private > */
   guint32 n_beams;
   guint32 resolution;
+
+  float* vertices;
+  float* colors;
 };
 
 struct _GstSonarsinkClass
 {
-  GstVideoSinkClass parent_class;
+  GstBaseSinkClass parent_class;
 };
 
 GType gst_sonarsink_get_type (void);
