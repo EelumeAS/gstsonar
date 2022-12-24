@@ -17,7 +17,6 @@
 #include <stdio.h>
 #include <sys/time.h>
 
-#include <gst/base/gstbytereader.h>
 #include <gst/video/video.h>
 
 inline double ms()
@@ -184,13 +183,12 @@ gst_sonarconvert_class_init (GstSonarconvertClass * klass)
   GObjectClass *gobject_class = (GObjectClass *) klass;
   GstElementClass *gstelement_class = (GstElementClass *) klass;
   GstBaseTransformClass *basetransform_class = (GstBaseTransformClass *) klass;
-  GstBaseTransformClass *base_class = (GstBaseTransformClass *) klass;
 
   gobject_class->finalize     = gst_sonarconvert_finalize;
   gobject_class->set_property = gst_sonarconvert_set_property;
   gobject_class->get_property = gst_sonarconvert_get_property;
 
-  GST_DEBUG_CATEGORY_INIT(sonarconvert_debug, "sonarconvert", 0, "Fix for double buffer bug in sonix c1/c1-pro cameras");
+  GST_DEBUG_CATEGORY_INIT(sonarconvert_debug, "sonarconvert", 0, "TODO");
 
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonarconvert",

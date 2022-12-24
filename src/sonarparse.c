@@ -242,13 +242,12 @@ gst_sonarparse_class_init (GstSonarparseClass * klass)
   GObjectClass *gobject_class = (GObjectClass *) klass;
   GstElementClass *gstelement_class = (GstElementClass *) klass;
   GstBaseParseClass *baseparse_class = (GstBaseParseClass *) klass;
-  GstBaseParseClass *base_class = (GstBaseParseClass *) klass;
 
   gobject_class->finalize     = gst_sonarparse_finalize;
   gobject_class->set_property = gst_sonarparse_set_property;
   gobject_class->get_property = gst_sonarparse_get_property;
 
-  GST_DEBUG_CATEGORY_INIT(sonarparse_debug, "sonarparse", 0, "Fix for double buffer bug in sonix c1/c1-pro cameras");
+  GST_DEBUG_CATEGORY_INIT(sonarparse_debug, "sonarparse", 0, "TODO");
 
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonarparse",
