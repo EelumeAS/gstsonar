@@ -13,10 +13,13 @@
 
 #include "sonarsink.h"
 #include "navi.h"
-#include "openglWp.h"
+//#include "openglWp.h"
 
 #include <stdio.h>
+#include <math.h>
 #include <sys/time.h>
+
+#define SUPPORTED_GL_APIS GST_GL_API_OPENGL | GST_GL_API_GLES2 | GST_GL_API_OPENGL3
 
 GST_DEBUG_CATEGORY_STATIC(sonarsink_debug);
 #define GST_CAT_DEFAULT sonarsink_debug
@@ -75,7 +78,7 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
 
   gst_buffer_unmap (buf, &mapinfo);
 
-  updateWp(sonarsink->vertices, sonarsink->colors, sonarsink->n_beams * sonarsink->resolution);
+  //updateWp(sonarsink->vertices, sonarsink->colors, sonarsink->n_beams * sonarsink->resolution);
 
   return GST_FLOW_OK;
 }
@@ -131,6 +134,38 @@ gst_sonarsink_set_caps (GstBaseSink * basesink, GstCaps * caps)
 }
 
 static void
+gst_sonarsink_set_display (GstSonarsink * sonarsink, GstGLDisplay * display)
+{
+  GST_OBJECT_LOCK (sonarsink);
+  if (sonarsink->display)
+    gst_object_unref (sonarsink->display);
+
+  sonarsink->display = display;
+  GST_OBJECT_UNLOCK (sonarsink);
+}
+
+static void
+gst_sonarsink_set_context (GstElement * element, GstContext * context)
+{
+  GstSonarsink *sonarsink = GST_SONARSINK (element);
+  GstGLContext *other_context = NULL;
+  GstGLDisplay *display = NULL;
+  GST_DEBUG_OBJECT(sonarsink, "got context");
+
+  gst_gl_handle_set_context (element, context, &display, &other_context);
+  //_set_other_context (sonarsink, other_context);
+  gst_sonarsink_set_display (sonarsink, display);
+
+  if (sonarsink->display)
+  {
+    GST_DEBUG_OBJECT(sonarsink, "got display");
+    gst_gl_display_filter_gl_api (sonarsink->display, SUPPORTED_GL_APIS);
+  }
+
+  GST_ELEMENT_CLASS (parent_class)->set_context (element, context);
+}
+
+static void
 gst_sonarsink_set_property (GObject * object, guint prop_id, const GValue * value,
     GParamSpec * pspec)
 {
@@ -176,6 +211,8 @@ gst_sonarsink_class_init (GstSonarsinkClass * klass)
   GstElementClass *gstelement_class = (GstElementClass *) klass;
   GstBaseSinkClass *basesink_class = (GstBaseSinkClass *) klass;
 
+  gstelement_class->set_context = gst_sonarsink_set_context;
+
   gobject_class->finalize     = gst_sonarsink_finalize;
   gobject_class->set_property = gst_sonarsink_set_property;
   gobject_class->get_property = gst_sonarsink_get_property;
@@ -201,7 +238,8 @@ gst_sonarsink_init (GstSonarsink * sonarsink)
   sonarsink->resolution = 0;
   sonarsink->vertices = NULL;
   sonarsink->colors = NULL;
+  sonarsink->display = NULL;
 
-  int rc = initWp();
-  assert(rc == 0);
+  //int rc = initWp();
+  //assert(rc == 0);
 }

@@ -4,6 +4,8 @@
 #include <gst/gst.h>
 
 #include <gst/base/gstbasesink.h>
+#include <gst/gl/gl.h>
+#include <gst/gl/gstglfuncs.h>
 
 G_BEGIN_DECLS
 
@@ -31,6 +33,8 @@ struct _GstSonarsink
 
   float* vertices;
   float* colors;
+
+  GstGLDisplay *display;
 };
 
 struct _GstSonarsinkClass
