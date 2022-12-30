@@ -35,6 +35,16 @@ struct _GstSonarsink
   float* colors;
 
   GstGLDisplay *display;
+  GstGLContext *context;
+  GstGLContext *other_context;
+  //GstGLTextureTarget texture_target;
+  GstGLShader *shader;
+
+  guintptr window_id;
+  guintptr new_window_id;
+  gint to_quit;
+  gboolean handle_events;
+
 };
 
 struct _GstSonarsinkClass
