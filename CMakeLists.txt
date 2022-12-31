@@ -9,16 +9,14 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-base-1.0 gstreamer-allocators-1.0 gstreamer-video-1.0)
 
 
-include_directories(src ${GST_INCLUDE_DIRS})
+include_directories(${GST_INCLUDE_DIRS})
 
-file(GLOB SOURCES src/*.c)
-add_library(gstsonar SHARED ${SOURCES})
-
-IF(DEFINED ENV{IMXVPUTEXTOVERLAY_DEBUG})
-  add_definitions("-DIMXVPUTEXTOVERLAY_DEBUG=\"${IMXVPUTEXTOVERLAY_DEBUG}\"")
-ELSE()
-  set(GST_LIBRARIES "${GST_LIBRARIES}")
-ENDIF()
+file(GLOB SONAR_SRC src/sonar/*.c*)
+add_library(gstsonar SHARED ${SONAR_SRC})
 target_link_libraries(gstsonar ${GST_LIBRARIES} -lGLEW -lGL -lSDL2)
-
 install(TARGETS gstsonar DESTINATION lib/gstreamer-1.0)
+
+file(GLOB PLAYSONAR_SRC src/playsonar/*.c*)
+add_executable(playsonar ${PLAYSONAR_SRC})
+target_link_libraries(playsonar ${GST_LIBRARIES})
+install(TARGETS playsonar DESTINATION bin)
