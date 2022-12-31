@@ -35,6 +35,8 @@ struct _GstSonarsink
   // initializer flag for openglWp
   int init_wp;
 
+  GstState playpause; // which state to set on next space press
+
   float zoom; // factor to scale ranges with
 };
 

@@ -8,7 +8,9 @@ gboolean cb_bus_message(GstBus * bus, GstMessage * message, gpointer p_pipeline)
 {
   GstElement *pipeline = (GstElement*) p_pipeline;
 
-  switch (GST_MESSAGE_TYPE (message))
+  GstMessageType message_type = GST_MESSAGE_TYPE (message);
+
+  switch (message_type)
   {
     case GST_MESSAGE_EOS:
       g_print ("End-Of-Stream received\n");
@@ -17,6 +19,7 @@ gboolean cb_bus_message(GstBus * bus, GstMessage * message, gpointer p_pipeline)
       exit(0);
       break;
     default:
+      g_print("got message: %s\n", gst_message_type_get_name(message_type));
       break;
   }
 
