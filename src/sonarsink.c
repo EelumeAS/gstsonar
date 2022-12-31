@@ -82,12 +82,6 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
 
   gst_buffer_unmap (buf, &mapinfo);
 
-  if (sonarsink->init_wp)
-  {
-    sonarsink->init_wp = 0;
-    int rc = initWp();
-    assert(rc == 0);
-  }
   updateWp(sonarsink->vertices, sonarsink->colors, sonarsink->n_beams * sonarsink->resolution);
 
   return GST_FLOW_OK;
@@ -138,6 +132,14 @@ gst_sonarsink_set_caps (GstBaseSink * basesink, GstCaps * caps)
     GST_OBJECT_UNLOCK (sonarsink);
 
     GST_DEBUG_OBJECT(sonarsink, "got caps details n_beams: %d, resolution: %d", n_beams, resolution);
+
+    // initialize visualization once
+    if (sonarsink->init_wp)
+    {
+      sonarsink->init_wp = 0;
+      int rc = initWp();
+      assert(rc == 0);
+    }
 
     return TRUE;
   }
