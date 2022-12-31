@@ -36,7 +36,7 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
 {
   GstSonarsink *sonarsink = GST_SONARSINK (basesink);
 
-  GST_DEBUG_OBJECT(sonarsink, "rendering buffer: %p, width n_beams = %d, resolution = %d", buf, sonarsink->n_beams, sonarsink->resolution);
+  GST_DEBUG_OBJECT(sonarsink, "%lu: rendering buffer: %p, width n_beams = %d, resolution = %d", buf->pts, buf, sonarsink->n_beams, sonarsink->resolution);
 
   GstMapInfo mapinfo;
   if (!gst_buffer_map (buf, &mapinfo, GST_MAP_READ))
@@ -56,7 +56,7 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
 
       const int vertex_index = 3 * (beam_index * sonarsink->resolution + range_index);
 
-      const float scale = 5;
+      const float scale = 1;
       const float amplitude = (float)range_index / (float)sonarsink->resolution;
 
       sonarsink->vertices[vertex_index] = -sin(beam_angle) * amplitude * scale;
@@ -75,6 +75,12 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
 
   gst_buffer_unmap (buf, &mapinfo);
 
+  if (sonarsink->init_wp)
+  {
+    sonarsink->init_wp = 0;
+    int rc = initWp();
+    assert(rc == 0);
+  }
   updateWp(sonarsink->vertices, sonarsink->colors, sonarsink->n_beams * sonarsink->resolution);
 
   return GST_FLOW_OK;
@@ -201,7 +207,5 @@ gst_sonarsink_init (GstSonarsink * sonarsink)
   sonarsink->resolution = 0;
   sonarsink->vertices = NULL;
   sonarsink->colors = NULL;
-
-  int rc = initWp();
-  assert(rc == 0);
+  sonarsink->init_wp = 1;
 }

@@ -31,6 +31,9 @@ struct _GstSonarsink
 
   float* vertices;
   float* colors;
+
+  // initializer flag for openglWp
+  int init_wp;
 };
 
 struct _GstSonarsinkClass
