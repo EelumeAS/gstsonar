@@ -24,6 +24,14 @@ GST_DEBUG_CATEGORY_STATIC(sonarsink_debug);
 #define gst_sonarsink_parent_class parent_class
 G_DEFINE_TYPE (GstSonarsink, gst_sonarsink, GST_TYPE_BASE_SINK);
 
+enum
+{
+  PROP_0,
+  PROP_ZOOM,
+};
+
+#define DEFAULT_PROP_ZOOM 1
+
 static GstStaticPadTemplate gst_sonarsink_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
@@ -56,11 +64,10 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
 
       const int vertex_index = 3 * (beam_index * sonarsink->resolution + range_index);
 
-      const float scale = 1;
       const float amplitude = (float)range_index / (float)sonarsink->resolution;
 
-      sonarsink->vertices[vertex_index] = -sin(beam_angle) * amplitude * scale;
-      sonarsink->vertices[vertex_index+1] = cos(beam_angle) * amplitude * scale;
+      sonarsink->vertices[vertex_index] = -sin(beam_angle) * amplitude * sonarsink->zoom;
+      sonarsink->vertices[vertex_index+1] = cos(beam_angle) * amplitude * sonarsink->zoom;
       sonarsink->vertices[vertex_index+2] = -1;
 
 
@@ -144,6 +151,9 @@ gst_sonarsink_set_property (GObject * object, guint prop_id, const GValue * valu
 
   GST_OBJECT_LOCK (sonarsink);
   switch (prop_id) {
+    case PROP_ZOOM:
+      sonarsink->zoom = g_value_get_double (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -158,6 +168,9 @@ gst_sonarsink_get_property (GObject * object, guint prop_id, GValue * value,
   GstSonarsink *sonarsink = GST_SONARSINK (object);
 
   switch (prop_id) {
+    case PROP_ZOOM:
+      g_value_set_double (value, sonarsink->zoom);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -191,6 +204,10 @@ gst_sonarsink_class_init (GstSonarsinkClass * klass)
 
   GST_DEBUG_CATEGORY_INIT(sonarsink_debug, "sonarsink", 0, "TODO");
 
+  g_object_class_install_property (G_OBJECT_CLASS (klass), PROP_ZOOM,
+      g_param_spec_double ("zoom", "zoom",
+          "Zoom", G_MINDOUBLE, G_MAXDOUBLE, DEFAULT_PROP_ZOOM,
+          G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE | G_PARAM_STATIC_STRINGS));
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonarsink",
       "Sink",
@@ -208,4 +225,6 @@ gst_sonarsink_init (GstSonarsink * sonarsink)
   sonarsink->vertices = NULL;
   sonarsink->colors = NULL;
   sonarsink->init_wp = 1;
+
+  sonarsink->zoom = DEFAULT_PROP_ZOOM;
 }

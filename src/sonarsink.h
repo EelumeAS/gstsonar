@@ -34,6 +34,8 @@ struct _GstSonarsink
 
   // initializer flag for openglWp
   int init_wp;
+
+  float zoom; // factor to scale ranges with
 };
 
 struct _GstSonarsinkClass
