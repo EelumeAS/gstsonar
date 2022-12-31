@@ -82,7 +82,27 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
 
   gst_buffer_unmap (buf, &mapinfo);
 
+  // update graphic
   updateWp(sonarsink->vertices, sonarsink->colors, sonarsink->n_beams * sonarsink->resolution);
+
+  // take input from window
+  SDL_Event e;
+  while ( SDL_PollEvent(&e) ) {
+    switch (e.type) {
+      case SDL_QUIT:
+        return GST_FLOW_EOS;
+      break;
+      case SDL_KEYDOWN:
+      {
+        switch (e.key.keysym.sym) {
+          case SDLK_ESCAPE:
+            return GST_FLOW_EOS;
+          //case SDLK_SPACE: TODO: send pause signal
+        }
+      break;
+      }
+    }
+  }
 
   return GST_FLOW_OK;
 }
