@@ -1,6 +1,14 @@
 # gstsonar
 
-GStreamer plugins for processing sonar data from [Norbit WBMS FLS](https://norbit.com/subsea/products/).
+GStreamer elements for processing sonar data from [Norbit WBMS FLS](https://norbit.com/subsea/products/).
+
+## Prerequisites
+
+[GStreamer](https://gstreamer.freedesktop.org/download/)
+
+SDL2
+
+OpenGL, GLEW
 
 ## Build
 
