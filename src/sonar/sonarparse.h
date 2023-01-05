@@ -31,6 +31,10 @@ struct _GstSonarparse
   guint32 resolution;
   guint32 framerate;
 
+  gfloat sound_speed;
+  gfloat sample_rate;
+  guint32 t0;
+
   guint64 initial_time;
 };
 
@@ -40,6 +44,21 @@ struct _GstSonarparseClass
 };
 
 GType gst_sonarparse_get_type (void);
+
+// sonar meta
+typedef struct _GstSonarMeta GstSonarMeta;
+struct _GstSonarMeta {
+  GstMeta meta;
+
+  float sound_speed; // Filtered sanitized sound speed in m/s
+  float sample_rate; // Sample rate in reported range sample index, in Hz
+  int t0; // Sample index of first sample in each beam
+};
+
+GType gst_sonar_meta_api_get_type (void);
+const GstMetaInfo * gst_sonar_meta_get_info (void);
+#define GST_SONAR_META_GET(buf) ((GstSonarMeta *)gst_buffer_get_meta(buf,gst_sonar_meta_api_get_type()))
+#define GST_SONAR_META_ADD(buf) ((GstSonarMeta *)gst_buffer_add_meta(buf,gst_sonar_meta_get_info(),NULL))
 
 G_END_DECLS
 

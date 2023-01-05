@@ -45,7 +45,7 @@ GST_STATIC_PAD_TEMPLATE ("src",
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) [ 0, MAX ], "
         "framerate = (fraction) [ 0/1, MAX ], "
-        //"parsed = (boolean) true"
+        "parsed = (boolean) true"
         )
     );
 
@@ -60,7 +60,6 @@ static GstFlowReturn
 gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame, gint * skipsize)
 {
   GstSonarparse *sonarparse = GST_SONARPARSE (baseparse);
-  GST_LOG_OBJECT(sonarparse, "handle_frame");
 
   // profile time:
   //static double start = 0;
@@ -94,7 +93,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
   else if (*skipsize != 0)
     exit;
 
-  GST_LOG_OBJECT(sonarparse, "found preamble at %d\n", *skipsize);
+  GST_TRACE_OBJECT(sonarparse, "found preamble at %d\n", *skipsize);
 
   // skip over preamble
   gst_byte_reader_skip (&reader, *skipsize);
@@ -149,6 +148,21 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
 
   GST_LOG_OBJECT(sonarparse, "time: %f %llu\n", sub_header->time, GST_BUFFER_PTS (frame->buffer));
 
+  static double prev_pts = 0;
+  double pts = sub_header->time;
+  static double fps = 0;
+  if (prev_pts != 0)
+  {
+    double new_fps = 1./(pts-prev_pts);
+    if (fps == 0)
+      fps = new_fps;
+    else
+      fps = 0.3*fps + .7 * new_fps;
+    GST_LOG_OBJECT(sonarparse, "fps: %f, %f\n", new_fps, fps);
+  }
+  prev_pts = pts;
+
+
   guint32 old_n_beams = sonarparse->n_beams;
   guint32 old_resolution = sonarparse->resolution;
   guint32 old_framerate = sonarparse->framerate;
@@ -177,12 +191,28 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
     gst_caps_unref (caps);
   }
 
-  //gst_byte_reader_skip (&reader, sonarparse->n_beams * sonarparse->resolution * sizeof(guint16) + sonarparse->n_beams * sizeof(float));
-  //return gst_base_parse_finish_frame (baseparse, frame, gst_byte_reader_get_pos (&reader));
+  sonarparse->sound_speed = sub_header->snd_velocity;
+  sonarparse->sample_rate = sub_header->sample_rate;
+  sonarparse->t0 = sub_header->t0;
 
   #undef exit
 
+  gst_buffer_unmap (frame->buffer, &mapinfo);
+
   return gst_base_parse_finish_frame (baseparse, frame, size);
+}
+
+static GstFlowReturn
+gst_sonarparse_pre_push_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame)
+{
+  GstSonarparse *sonarparse = GST_SONARPARSE (baseparse);
+
+  GstSonarMeta *meta = GST_SONAR_META_ADD(frame->buffer);
+  meta->sound_speed = sonarparse->sound_speed;
+  meta->sample_rate = sonarparse->sample_rate;
+  meta->t0 = sonarparse->t0;
+
+  return GST_FLOW_OK;
 }
 
 static gboolean
@@ -259,6 +289,7 @@ gst_sonarparse_class_init (GstSonarparseClass * klass)
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonarparse_src_template);
 
   baseparse_class->handle_frame = GST_DEBUG_FUNCPTR (gst_sonarparse_handle_frame);
+  baseparse_class->pre_push_frame = GST_DEBUG_FUNCPTR (gst_sonarparse_pre_push_frame);
   baseparse_class->start = GST_DEBUG_FUNCPTR (gst_sonarparse_start);
 }
 
@@ -268,4 +299,47 @@ gst_sonarparse_init (GstSonarparse * sonarparse)
   sonarparse->n_beams = 0;
   sonarparse->resolution = 0;
   sonarparse->framerate = 0;
+}
+
+// sonar meta
+GType gst_sonar_meta_api_get_type(void)
+{
+	static GType type;
+	static const gchar *tags[] = { GST_META_TAG_MEMORY_STR, NULL };
+
+	if (g_once_init_enter(&type))
+	{
+		GType _type = gst_meta_api_type_register("GstSonarMetaAPI", tags);
+		g_once_init_leave(&type, _type);
+	}
+	return type;
+}
+
+static gboolean gst_sonar_meta_init(GstMeta *meta, G_GNUC_UNUSED gpointer params, G_GNUC_UNUSED GstBuffer *buffer)
+{
+	GstSonarMeta *sonarmeta = (GstSonarMeta *)meta;
+
+	sonarmeta->sound_speed = 0;
+	sonarmeta->sample_rate = 0;
+	sonarmeta->t0 = 0;
+
+	return TRUE;
+}
+
+const GstMetaInfo *gst_sonar_meta_get_info(void)
+{
+	static const GstMetaInfo *meta_info = NULL;
+
+	if (g_once_init_enter(&meta_info))
+	{
+		const GstMetaInfo *meta = gst_meta_register(
+				gst_sonar_meta_api_get_type(),
+				"GstSonarMeta",
+				sizeof(GstSonarMeta),
+				(GstMetaInitFunction)gst_sonar_meta_init,
+				(GstMetaFreeFunction)NULL,
+				(GstMetaTransformFunction)NULL);
+		g_once_init_leave(&meta_info, meta);
+	}
+	return meta_info;
 }

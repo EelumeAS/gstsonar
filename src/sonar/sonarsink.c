@@ -14,6 +14,7 @@
 #include "sonarsink.h"
 #include "navi.h"
 #include "openglWp.h"
+#include "sonarparse.h"
 
 #include <stdio.h>
 #include <sys/time.h>
@@ -44,7 +45,10 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
 {
   GstSonarsink *sonarsink = GST_SONARSINK (basesink);
 
-  GST_DEBUG_OBJECT(sonarsink, "%lu: rendering buffer: %p, width n_beams = %d, resolution = %d", buf->pts, buf, sonarsink->n_beams, sonarsink->resolution);
+  GstSonarMeta *meta = GST_SONAR_META_GET(buf);
+
+  GST_DEBUG_OBJECT(sonarsink, "%lu: rendering buffer: %p, width n_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d"
+    , buf->pts, buf, sonarsink->n_beams, sonarsink->resolution, meta->sound_speed, meta->sample_rate, meta->t0);
 
   GstMapInfo mapinfo;
   if (!gst_buffer_map (buf, &mapinfo, GST_MAP_READ))
@@ -59,24 +63,26 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
     for (int beam_index=0; beam_index < sonarsink->n_beams; ++beam_index)
     {
       float beam_angle = ((const float*)((const uint16_t*)payload + sonarsink->n_beams * sonarsink->resolution))[beam_index];
-
       uint16_t beam_intensity = ((const uint16_t*)payload)[range_index * sonarsink->n_beams + beam_index];
+      float distance = ((meta->t0 + range_index) * meta->sound_speed) / (2 * meta->sample_rate);
 
-      const int vertex_index = 3 * (beam_index * sonarsink->resolution + range_index);
+      int vertex_index = 3 * (beam_index * sonarsink->resolution + range_index);
+      float* vertex = sonarsink->vertices + vertex_index;
 
-      const float amplitude = (float)range_index / (float)sonarsink->resolution;
+      float range_norm = (float)range_index / (float)sonarsink->resolution;
 
-      sonarsink->vertices[vertex_index] = -sin(beam_angle) * amplitude * sonarsink->zoom;
-      sonarsink->vertices[vertex_index+1] = cos(beam_angle) * amplitude * sonarsink->zoom;
-      sonarsink->vertices[vertex_index+2] = -1;
+      vertex[0] = -sin(beam_angle) * range_norm * sonarsink->zoom;
+      vertex[1] = -1 + cos(beam_angle) * range_norm * sonarsink->zoom;
+      vertex[2] = -1;
 
 
       const float iscale = 1.f/3e3;
       float I = beam_intensity * iscale;
       I = I > 1 ? 1 : I;
-      sonarsink->colors[vertex_index] = I;
-      sonarsink->colors[vertex_index+1] = I;
-      sonarsink->colors[vertex_index+2] = I;
+      float* color = sonarsink->colors + vertex_index;
+      color[0] = I;
+      color[1] = I;
+      color[2] = I;
     }
   }
 
@@ -174,7 +180,7 @@ gst_sonarsink_set_caps (GstBaseSink * basesink, GstCaps * caps)
     {
       sonarsink->init_wp = 0;
       int rc = initWp();
-      assert(rc == 0);
+      g_assert(rc == 0);
     }
 
     return TRUE;
