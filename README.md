@@ -37,14 +37,29 @@ View sonar data from file:
 gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! sonarsink zoom=5
 ```
 
-View sonar data from udp:
+View sonar data from tcp:
 
 ```
-gst-launch-1.0 udpsrc address="192.168.3.58" port=1109 ! sonarparse ! sonarsink
+gst-launch-1.0 tcpclientsrc host=192.168.3.58 port=2211 ! sonarparse ! sonarsink zoom=12
 ```
 
 
 View sonar data from file as normal image:
 ```
 gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! sonarconvert ! videoconvert ! autovideosink
+```
+
+## Settings on norbit sonar
+
+Connect to control interface:
+```
+nc 192.168.3.58 2209
+```
+
+Commands:
+```
+set_power 1
+set_flip 1
+set_resolution 640 512
+set_range 1 25
 ```
