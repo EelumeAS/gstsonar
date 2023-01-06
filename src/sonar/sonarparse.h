@@ -31,11 +31,11 @@ struct _GstSonarparse
   guint32 resolution;
   guint32 framerate;
 
+  guint64 initial_time;
+
   gfloat sound_speed;
   gfloat sample_rate;
   guint32 t0;
-
-  guint64 initial_time;
 };
 
 struct _GstSonarparseClass
