@@ -15,9 +15,9 @@ inline uint64_t nanoseconds() {
   return (uint64_t)ts.tv_sec * (uint64_t)1e9 + (uint64_t)ts.tv_nsec;
 }
 
-struct SbdEntryHeader
+typedef struct
 {
-    enum
+    enum __attribute__ ((__packed__)) // IMPORTANT: the enum should only be one byte
     {
         NMEA_EIHEA = 2,
         NMEA_EIORI = 3,
@@ -25,7 +25,7 @@ struct SbdEntryHeader
         NMEA_EIPOS = 8,
         WBMS_BATH = 9,
         WBMS_FLS = 10,
-        HEADER = 21,
+        SBD_HEADER = 21,
     } entry_type;
 
     char dont_care[3];
@@ -38,8 +38,8 @@ struct SbdEntryHeader
     } absolute_time;
 
     uint32_t entry_size;
-};
-static_assert(sizeof(SbdEntryHeader) == 20);
+} sbd_entry_header_t;
+static_assert(sizeof(sbd_entry_header_t) == 20);
 
 #pragma pack(4)
 

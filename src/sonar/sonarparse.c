@@ -93,7 +93,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
   else if (*skipsize != 0)
     exit;
 
-  GST_TRACE_OBJECT(sonarparse, "found preamble at %d\n", *skipsize);
+  GST_TRACE_OBJECT(sonarparse, "found preamble at %d", *skipsize);
 
   // skip over preamble
   gst_byte_reader_skip (&reader, *skipsize);
@@ -114,7 +114,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
 
   if (header->type != 2)
   {
-    GST_ERROR_OBJECT(sonarparse, "sonar type not implemented: %d\n", header->type);
+    GST_ERROR_OBJECT(sonarparse, "sonar type not implemented: %d", header->type);
     gst_buffer_unmap (frame->buffer, &mapinfo);
     return GST_FLOW_ERROR;
   }
@@ -123,7 +123,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
 
   if (size < sizeof(packet_header_t))
   {
-    GST_ERROR_OBJECT(sonarparse, "size specified in header is too small: %d\n", size);
+    GST_ERROR_OBJECT(sonarparse, "size specified in header is too small: %d", size);
     gst_buffer_unmap (frame->buffer, &mapinfo);
     return GST_FLOW_ERROR;
   }
@@ -146,7 +146,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
   GST_BUFFER_PTS (frame->buffer) = GST_BUFFER_DTS (frame->buffer) = time - sonarparse->initial_time;
   GST_BUFFER_DURATION (frame->buffer) = (guint64)(1e9/sub_header->ping_rate);
 
-  GST_LOG_OBJECT(sonarparse, "time: %f %llu\n", sub_header->time, GST_BUFFER_PTS (frame->buffer));
+  GST_LOG_OBJECT(sonarparse, "time: %f %llu", sub_header->time, GST_BUFFER_PTS (frame->buffer));
 
   static double prev_pts = 0;
   double pts = sub_header->time;
@@ -158,7 +158,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
       fps = new_fps;
     else
       fps = 0.3*fps + .7 * new_fps;
-    GST_LOG_OBJECT(sonarparse, "fps: %f, %f\n", new_fps, fps);
+    GST_LOG_OBJECT(sonarparse, "fps: %f, %f", new_fps, fps);
   }
   prev_pts = pts;
 
@@ -180,9 +180,9 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
     GST_DEBUG_OBJECT (sonarparse, "setting downstream caps on %s:%s to %" GST_PTR_FORMAT,
       GST_DEBUG_PAD_NAME (GST_BASE_PARSE_SRC_PAD (sonarparse)), caps);
 
-    if (!gst_pad_set_caps (GST_BASE_PARSE_SRC_PAD (baseparse), caps))
+    if (!gst_pad_set_caps (GST_BASE_PARSE_SRC_PAD (sonarparse), caps))
     {
-      GST_ERROR_OBJECT(sonarparse, "couldn't set caps");
+      GST_ERROR_OBJECT(sonarparse, "couldn't set src caps");
       gst_caps_unref (caps);
       gst_buffer_unmap (frame->buffer, &mapinfo);
       return GST_FLOW_ERROR;
@@ -223,9 +223,6 @@ gst_sonarparse_start (GstBaseParse * baseparse)
   GST_DEBUG_OBJECT (sonarparse, "start");
 
   gst_base_parse_set_min_frame_size (baseparse, sizeof(packet_header_t));
-
-  sonarparse->n_beams = 0;
-  sonarparse->resolution = 0;
 
   return TRUE;
 }
