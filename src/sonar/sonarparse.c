@@ -296,6 +296,8 @@ gst_sonarparse_init (GstSonarparse * sonarparse)
   sonarparse->n_beams = 0;
   sonarparse->resolution = 0;
   sonarparse->framerate = 0;
+
+  sonarparse->initial_time = 0;
 }
 
 // sonar meta
