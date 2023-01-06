@@ -30,7 +30,7 @@ typedef struct
   float longitude;
   float depth;
   float altitude;
-} telemetry;
+} GstSbdparseTelemetry;
 
 struct _GstSbdparse
 {
@@ -38,6 +38,7 @@ struct _GstSbdparse
 
   /* < private > */
 
+  GstPad *telsrc; // telemetry source
   guint64 initial_time;
 };
 

@@ -25,6 +25,13 @@ GST_DEBUG_CATEGORY_STATIC(sbdparse_debug);
 #define gst_sbdparse_parent_class parent_class
 G_DEFINE_TYPE (GstSbdparse, gst_sbdparse, GST_TYPE_BASE_PARSE);
 
+static GstStaticPadTemplate gst_sbdparse_sonar_sink_template =
+GST_STATIC_PAD_TEMPLATE ("sink",
+  GST_PAD_SINK,
+  GST_PAD_ALWAYS,
+  GST_STATIC_CAPS ("sonar/multibeam")
+  );
+
 static GstStaticPadTemplate gst_sbdparse_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
@@ -38,19 +45,23 @@ GST_STATIC_PAD_TEMPLATE ("src",
         )
     );
 
-static GstStaticPadTemplate gst_sbdparse_sonar_sink_template =
-GST_STATIC_PAD_TEMPLATE ("sink",
-  GST_PAD_SINK,
-  GST_PAD_ALWAYS,
-  GST_STATIC_CAPS ("sonar/multibeam")
-  );
-
-static GstStaticPadTemplate gst_sbdparse_telemetry_sink_template =
-GST_STATIC_PAD_TEMPLATE ("sink",
-  GST_PAD_SINK,
+static GstStaticPadTemplate gst_sbdparse_telemetry_src_template =
+GST_STATIC_PAD_TEMPLATE ("tel",
+  GST_PAD_SRC,
   GST_PAD_ALWAYS,
   GST_STATIC_CAPS ("application/telemetry")
   );
+
+static GstFlowReturn
+gst_sbdparse_push_telemetry (GstSbdparse *sbdparse, GstSbdparseTelemetry *telemetry, guint64 timestamp)
+{
+  GstBuffer *buf = gst_buffer_new_wrapped (telemetry, sizeof(*telemetry));
+  GST_BUFFER_PTS (buf) = timestamp;
+
+  GST_DEBUG_OBJECT (sbdparse, "creating telemetry buffer %p", buf);
+
+  return gst_pad_push (sbdparse->telsrc, buf);
+}
 
 static GstFlowReturn
 gst_sbdparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame, gint * skipsize)
@@ -63,7 +74,7 @@ gst_sbdparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame, 
 
   #define exit(value) do {\
     gst_buffer_unmap (frame->buffer, &mapinfo); \
-    return value; \
+    return (value); \
   } while (0)
 
   const sbd_entry_header_t *header = (sbd_entry_header_t*)mapinfo.data;
@@ -141,7 +152,14 @@ gst_sbdparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame, 
         }
 
         *skipsize = total_size;
-        exit(GST_FLOW_OK);
+
+        GstSbdparseTelemetry *telemetry = g_malloc(sizeof(*telemetry));
+        *telemetry =
+        (GstSbdparseTelemetry){
+          .yaw = heading,
+        };
+
+        exit(gst_sbdparse_push_telemetry(sbdparse, telemetry, timestamp));
       }
       case NMEA_EIPOS:
       {
@@ -165,7 +183,15 @@ gst_sbdparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame, 
         }
 
         *skipsize = total_size;
-        exit(GST_FLOW_OK);
+
+        GstSbdparseTelemetry *telemetry = g_malloc(sizeof(*telemetry));
+        *telemetry =
+        (GstSbdparseTelemetry){
+          .latitude = latitude,
+          .longitude = longitude,
+        };
+
+        exit(gst_sbdparse_push_telemetry(sbdparse, telemetry, timestamp));
       }
       case NMEA_EIORI:
       {
@@ -187,7 +213,15 @@ gst_sbdparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame, 
         }
 
         *skipsize = total_size;
-        exit(GST_FLOW_OK);
+
+        GstSbdparseTelemetry *telemetry = g_malloc(sizeof(*telemetry));
+        *telemetry =
+        (GstSbdparseTelemetry){
+          .pitch = pitch,
+          .roll = roll,
+        };
+
+        exit(gst_sbdparse_push_telemetry(sbdparse, telemetry, timestamp));
       }
       case NMEA_EIDEP:
       {
@@ -208,7 +242,15 @@ gst_sbdparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame, 
         }
 
         *skipsize = total_size;
-        exit(GST_FLOW_OK);
+
+        GstSbdparseTelemetry *telemetry = g_malloc(sizeof(*telemetry));
+        *telemetry =
+        (GstSbdparseTelemetry){
+          .depth = depth,
+          .altitude = altitude,
+        };
+
+        exit(gst_sbdparse_push_telemetry(sbdparse, telemetry, timestamp));
       }
       case SBD_HEADER:
         GST_WARNING_OBJECT (sbdparse, "ignoring SBD_HEADER entry");
@@ -292,8 +334,8 @@ gst_sbdparse_class_init (GstSbdparseClass * klass)
       "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sbdparse_sonar_sink_template);
-  //gst_element_class_add_static_pad_template (gstelement_class, &gst_sbdparse_telemetry_sink_template);
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sbdparse_src_template);
+  gst_element_class_add_static_pad_template (gstelement_class, &gst_sbdparse_telemetry_src_template);
 
   baseparse_class->handle_frame = GST_DEBUG_FUNCPTR (gst_sbdparse_handle_frame);
   baseparse_class->start = GST_DEBUG_FUNCPTR (gst_sbdparse_start);
@@ -302,4 +344,9 @@ gst_sbdparse_class_init (GstSbdparseClass * klass)
 static void
 gst_sbdparse_init (GstSbdparse * sbdparse)
 {
+  sbdparse->telsrc = gst_pad_new_from_static_template (&gst_sbdparse_telemetry_src_template, "tel");
+  gst_pad_use_fixed_caps (sbdparse->telsrc);
+  gst_element_add_pad (GST_ELEMENT (sbdparse), sbdparse->telsrc);
+
+  sbdparse->initial_time = 0;
 }
