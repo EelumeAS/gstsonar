@@ -49,6 +49,11 @@ View sonar data from file as normal image:
 gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! sonarconvert ! videoconvert ! autovideosink
 ```
 
+Parse both sonar and telemetry data:
+```
+gst-launch-1.0 filesrc location=../samples/in.sbd ! tee name=t ! queue ! sonarparse ! sonarsink t. ! queue ! nmeaparse ! fakesink
+```
+
 ## Settings on norbit sonar
 
 Connect to control interface:
