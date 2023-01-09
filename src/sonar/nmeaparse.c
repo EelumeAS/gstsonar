@@ -25,28 +25,15 @@ GST_DEBUG_CATEGORY_STATIC(nmeaparse_debug);
 #define gst_nmeaparse_parent_class parent_class
 G_DEFINE_TYPE (GstNmeaparse, gst_nmeaparse, GST_TYPE_BASE_PARSE);
 
-static GstStaticPadTemplate gst_nmeaparse_sonar_sink_template =
+static GstStaticPadTemplate gst_nmeaparse_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
   GST_PAD_SINK,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS ("sonar/multibeam")
+  GST_STATIC_CAPS_ANY
   );
 
-static GstStaticPadTemplate gst_nmeaparse_src_template =
-GST_STATIC_PAD_TEMPLATE ("src",
-    GST_PAD_SRC,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("sonar/multibeam, "
-        //"format = (string) { norbit }, "
-        "n_beams = (int) [ 0, MAX ],"
-        "resolution = (int) [ 0, MAX ], "
-        "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true"
-        )
-    );
-
 static GstStaticPadTemplate gst_nmeaparse_telemetry_src_template =
-GST_STATIC_PAD_TEMPLATE ("tel",
+GST_STATIC_PAD_TEMPLATE ("src",
   GST_PAD_SRC,
   GST_PAD_ALWAYS,
   GST_STATIC_CAPS ("application/telemetry")
@@ -268,9 +255,8 @@ gst_nmeaparse_class_init (GstNmeaparseClass * klass)
       "TODO", // TODO
       "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
-  gst_element_class_add_static_pad_template (gstelement_class, &gst_nmeaparse_sonar_sink_template);
-  gst_element_class_add_static_pad_template (gstelement_class, &gst_nmeaparse_src_template);
   gst_element_class_add_static_pad_template (gstelement_class, &gst_nmeaparse_telemetry_src_template);
+  gst_element_class_add_static_pad_template (gstelement_class, &gst_nmeaparse_sink_template);
 
   baseparse_class->handle_frame = GST_DEBUG_FUNCPTR (gst_nmeaparse_handle_frame);
   baseparse_class->start = GST_DEBUG_FUNCPTR (gst_nmeaparse_start);
