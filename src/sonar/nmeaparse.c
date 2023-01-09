@@ -140,10 +140,19 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   timestamp *= (guint64)1e6; // ms to ns
   if (telemetry != NULL)
   {
-    // set time
     if (nmeaparse->initial_time == 0)
     {
+      // set initial time
       nmeaparse->initial_time = timestamp;
+
+      GstStructure *s = gst_structure_new ("initial_epoch",
+        "timestamp", G_TYPE_UINT64, timestamp
+        , NULL);
+
+      GstMessage* msg = gst_message_new_element(GST_OBJECT_CAST(nmeaparse), s);
+      gst_element_post_message(GST_ELEMENT_CAST(nmeaparse), msg);
+      GST_DEBUG_OBJECT (nmeaparse, "posted message %p", msg);
+
 
       // set constant caps as well
       GstCaps *caps = gst_caps_new_simple ("application/telemetry", NULL);

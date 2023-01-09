@@ -139,14 +139,32 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
     exit;
   sub_header = (const fls_data_header_t* )sub_header_data;
 
+  // handle initial time message
+  GstBus *bus = gst_element_get_bus((GstElement*)sonarparse);
+  GstMessage *msg = gst_bus_pop_filtered(bus, GST_MESSAGE_ELEMENT);
+  if (msg)
+  {
+    GST_WARNING_OBJECT(sonarparse, "got message %p", msg);
+    GstStructure *s = gst_message_get_structure (msg);
+    if (s) GST_WARNING_OBJECT(sonarparse, "got message: %s", gst_structure_to_string (s));
+    guint64 initial_time = 0;
+    if (s && gst_structure_get_uint64 (s, "timestamp", &initial_time))
+      GST_WARNING_OBJECT(sonarparse, "got initial time: %llu", initial_time);
+    gst_object_unref(bus);
+  }
+  else
+    GST_WARNING_OBJECT(sonarparse, "no msg");
+
   guint64 time = (guint64)(sub_header->time * 1e9);
   if (sonarparse->initial_time == 0)
+  {
     sonarparse->initial_time = time;
+  }
 
   GST_BUFFER_PTS (frame->buffer) = GST_BUFFER_DTS (frame->buffer) = time - sonarparse->initial_time;
   GST_BUFFER_DURATION (frame->buffer) = (guint64)(1e9/sub_header->ping_rate);
 
-  GST_LOG_OBJECT(sonarparse, "time: %f %llu", sub_header->time, GST_BUFFER_PTS (frame->buffer));
+  GST_TRACE_OBJECT(sonarparse, "time: %f %llu", sub_header->time, GST_BUFFER_PTS (frame->buffer));
 
   static double prev_pts = 0;
   double pts = sub_header->time;
@@ -158,7 +176,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
       fps = new_fps;
     else
       fps = 0.3*fps + .7 * new_fps;
-    GST_LOG_OBJECT(sonarparse, "fps: %f, %f", new_fps, fps);
+    GST_TRACE_OBJECT(sonarparse, "fps: %f, %f", new_fps, fps);
   }
   prev_pts = pts;
 
