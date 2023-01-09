@@ -56,9 +56,6 @@ gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
 {
   GstSonarmux *sonarmux = GST_SONARMUX (aggregator);
   GST_DEBUG_OBJECT(sonarmux, "aggregate");
-  //GstSonarMeta *meta = GST_SONAR_META_GET(buf);
-
-  GST_OBJECT_LOCK(sonarmux);
 
   //for (GList *l = GST_ELEMENT_CAST(sonarmux)->sinkpads; l; l = l->next)
   //{
@@ -68,12 +65,29 @@ gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
   //  GST_DEBUG_OBJECT(sonarmux, "caps structure: %s", gst_structure_to_string(s));
   //}
 
-  GstCaps *caps = gst_pad_get_current_caps(sonarmux->telsink);
-  GstStructure *s = gst_caps_get_structure (caps, 0);
-  GST_DEBUG_OBJECT(sonarmux, "caps structure: %s", gst_structure_to_string(s));
+  while (gst_aggregator_pad_has_buffer((GstAggregatorPad*)sonarmux->telsink))
+  {
+    GST_DEBUG_OBJECT(sonarmux, "dropping buffer");
+    gst_aggregator_pad_drop_buffer((GstAggregatorPad*)sonarmux->telsink);
+    //GstBuffer *buf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->telsink);
+    //if (buf)
+    //{
+    //  GST_DEBUG_OBJECT(sonarmux, "tel time of buf %p: %llu", buf, buf->pts);
+    //  gst_buffer_unref(buf);
+    //}
+  }
 
-  GST_OBJECT_UNLOCK(sonarmux);
-
+  GstBuffer *buf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->sonarsink);
+  if (buf)
+  {
+    //GstSonarMeta *meta = GST_SONAR_META_GET(buf);
+    //GST_AGGREGATOR_PAD(aggregator->srcpad)->segment.position = GST_BUFFER_PTS (buf);
+    GST_DEBUG_OBJECT(sonarmux, "got buffer %p with time %llu", buf, buf->pts);
+    return gst_aggregator_finish_buffer(aggregator, buf);
+  }
+  else
+    //return GST_FLOW_OK;
+    return GST_AGGREGATOR_FLOW_NEED_DATA;
 }
 
 static GstAggregatorPad *
@@ -90,9 +104,20 @@ gst_sonarmux_create_new_pad (GstAggregator * aggregator, GstPadTemplate * templ,
   else if (strcmp(req_name, "tel") == 0)
     sonarmux->telsink = (GstPad*)pad;
   else
-    g_assert(FALSE);
+    g_assert_not_reached();
 
   return pad;
+}
+
+static gboolean gst_sonarmux_update_src_caps (GstAggregator * aggregator, GstCaps *caps, GstCaps **ret)
+{
+  GstSonarmux *sonarmux = GST_SONARMUX (aggregator);
+
+  GstCaps *sonarcaps = gst_pad_get_current_caps(sonarmux->sonarsink);
+  GST_DEBUG_OBJECT(sonarmux, "sonarsink caps: %s\nother caps: %s", gst_caps_to_string(sonarcaps), gst_caps_to_string(caps));
+
+  *ret = gst_caps_copy(sonarcaps);
+  return TRUE;
 }
 
 static void
@@ -116,11 +141,13 @@ gst_sonarmux_get_property (GObject * object, guint prop_id, GValue * value,
 {
   GstSonarmux *sonarmux = GST_SONARMUX (object);
 
+  GST_OBJECT_LOCK (sonarmux);
   switch (prop_id) {
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
   }
+  GST_OBJECT_UNLOCK (sonarmux);
 }
 
 static void
@@ -144,6 +171,7 @@ gst_sonarmux_class_init (GstSonarmuxClass * klass)
 
   aggregator_class->aggregate = GST_DEBUG_FUNCPTR (gst_sonarmux_aggregate);
   aggregator_class->create_new_pad = GST_DEBUG_FUNCPTR (gst_sonarmux_create_new_pad);
+  aggregator_class->update_src_caps = GST_DEBUG_FUNCPTR (gst_sonarmux_update_src_caps);
 
   GST_DEBUG_CATEGORY_INIT(sonarmux_debug, "sonarmux", 0, "TODO");
 
