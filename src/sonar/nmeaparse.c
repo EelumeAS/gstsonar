@@ -12,6 +12,7 @@
  */
 
 #include "nmeaparse.h"
+#include "sonarparse.h"
 
 #include <stdio.h>
 #include <sys/time.h>
@@ -140,12 +141,33 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   timestamp *= (guint64)1e6; // ms to ns
   if (telemetry != NULL)
   {
-    // set time
     if (nmeaparse->initial_time == 0)
     {
-      nmeaparse->initial_time = timestamp;
+      // set initial time
+      g_mutex_lock(&gst_sonar_shared_data.m);
+      if (gst_sonar_shared_data.initial_time == 0)
+      {
+        GST_DEBUG_OBJECT(nmeaparse, "setting global initial time from %llu", timestamp);
+        nmeaparse->initial_time = gst_sonar_shared_data.initial_time = timestamp - GST_SONAR_INITIAL_TIME_REWIND;
+      }
+      else if (gst_sonar_shared_data.initial_time * 10 > timestamp)
+      {
+        GST_WARNING_OBJECT(nmeaparse, "global initial time is too large: %llu * 10 > %llu, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
+        nmeaparse->initial_time = timestamp;
+      }
+      else if (gst_sonar_shared_data.initial_time < timestamp * 10)
+      {
+        GST_WARNING_OBJECT(nmeaparse, "global initial time is too small: %llu < %llu * 10, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
+        nmeaparse->initial_time = timestamp;
+      }
+      else
+      {
+        GST_DEBUG_OBJECT(nmeaparse, "using global initial time %llu", gst_sonar_shared_data.initial_time);
+        nmeaparse->initial_time = gst_sonar_shared_data.initial_time;
+      }
+      g_mutex_unlock(&gst_sonar_shared_data.m);
 
-      // set constant caps as well
+      // set constant caps
       GstCaps *caps = gst_caps_new_simple ("application/telemetry", NULL);
       GST_DEBUG_OBJECT (nmeaparse, "setting downstream caps on %s:%s to %" GST_PTR_FORMAT,
         GST_DEBUG_PAD_NAME (GST_BASE_PARSE_SRC_PAD (nmeaparse)), caps);
@@ -161,7 +183,16 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     }
 
     frame->out_buffer = gst_buffer_new_wrapped (telemetry, sizeof(*telemetry));
-    GST_BUFFER_PTS (frame->out_buffer) = timestamp - nmeaparse->initial_time;
+
+    // set pts
+    if (timestamp < nmeaparse->initial_time)
+    {
+      GST_WARNING_OBJECT(nmeaparse, "timestamp would be negative: %llu < %llu, reset to zero", timestamp, nmeaparse->initial_time);
+      GST_BUFFER_PTS (frame->out_buffer) = GST_BUFFER_DTS (frame->out_buffer) = 0;
+    }
+    else
+      GST_BUFFER_PTS (frame->out_buffer) = GST_BUFFER_DTS (frame->out_buffer) = timestamp - nmeaparse->initial_time;
+
     GST_LOG_OBJECT (nmeaparse, "created telemetry buffer %p with timestamp: %llu, pts: %llu", frame->out_buffer, timestamp, GST_BUFFER_PTS (frame->out_buffer));
 
     exit(gst_base_parse_finish_frame (baseparse, frame, nmea_size + 2));
