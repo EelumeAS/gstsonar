@@ -51,7 +51,8 @@ gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! sonarconvert ! 
 
 Parse both sonar and telemetry data:
 ```
-gst-launch-1.0 filesrc location=../samples/in.sbd ! tee name=t ! queue ! sonarparse ! sonarsink t. ! queue ! nmeaparse ! fakesink
+gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! mux.sonar filesrc location=../samples/in.sbd ! nmeaparse ! mux.tel sonarmux name=mux ! sonarsink
+# (tee apparently doesn't go well with filesrc: gst-launch-1.0 filesrc location=../samples/in.sbd ! tee name=t ! queue ! sonarparse ! sonarsink t. ! queue ! nmeaparse ! fakesink)
 ```
 
 ## Settings on norbit sonar
