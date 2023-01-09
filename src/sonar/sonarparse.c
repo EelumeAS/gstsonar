@@ -56,6 +56,8 @@ GST_STATIC_PAD_TEMPLATE ("sink",
   GST_STATIC_CAPS ("sonar/multibeam")
   );
 
+GstSonarSharedData gst_sonar_shared_data;
+
 static GstFlowReturn
 gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame, gint * skipsize)
 {
@@ -139,11 +141,42 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
     exit;
   sub_header = (const fls_data_header_t* )sub_header_data;
 
-  guint64 time = (guint64)(sub_header->time * 1e9);
+  guint64 timestamp = (guint64)(sub_header->time * 1e9);
   if (sonarparse->initial_time == 0)
-    sonarparse->initial_time = time;
+  {
+    g_mutex_lock(&gst_sonar_shared_data.m);
 
-  GST_BUFFER_PTS (frame->buffer) = GST_BUFFER_DTS (frame->buffer) = time - sonarparse->initial_time;
+    if (gst_sonar_shared_data.initial_time == 0)
+    {
+      GST_DEBUG_OBJECT(sonarparse, "setting global initial time from %llu", timestamp);
+      sonarparse->initial_time = gst_sonar_shared_data.initial_time = timestamp - GST_SONAR_INITIAL_TIME_REWIND;
+    }
+    else if (gst_sonar_shared_data.initial_time * 10 > timestamp)
+    {
+      GST_WARNING_OBJECT(sonarparse, "global initial time is too large: %llu * 10 > %llu, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
+      sonarparse->initial_time = timestamp;
+    }
+    else if (gst_sonar_shared_data.initial_time < timestamp * 10)
+    {
+      GST_WARNING_OBJECT(sonarparse, "global initial time is too small: %llu < %llu * 10, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
+      sonarparse->initial_time = timestamp;
+    }
+    else
+    {
+      GST_DEBUG_OBJECT(sonarparse, "using global initial time %llu", gst_sonar_shared_data.initial_time);
+      sonarparse->initial_time = gst_sonar_shared_data.initial_time;
+    }
+    g_mutex_unlock(&gst_sonar_shared_data.m);
+  }
+
+  if (timestamp < sonarparse->initial_time)
+  {
+    GST_WARNING_OBJECT(sonarparse, "timestamp would be negative: %llu < %llu, reset to zero", timestamp, gst_sonar_shared_data.initial_time);
+    GST_BUFFER_PTS (frame->buffer) = GST_BUFFER_DTS (frame->buffer) = 0;
+  }
+  else
+    GST_BUFFER_PTS (frame->buffer) = GST_BUFFER_DTS (frame->buffer) = timestamp - sonarparse->initial_time;
+
   GST_BUFFER_DURATION (frame->buffer) = (guint64)(1e9/sub_header->ping_rate);
 
   GST_LOG_OBJECT(sonarparse, "time: %f %llu", sub_header->time, GST_BUFFER_PTS (frame->buffer));
@@ -259,6 +292,7 @@ static void
 gst_sonarparse_finalize (GObject * object)
 {
   GstSonarparse *sonarparse = GST_SONARPARSE (object);
+  g_mutex_clear(&gst_sonar_shared_data.m);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -321,6 +355,9 @@ static gboolean gst_sonar_meta_init(GstMeta *meta, G_GNUC_UNUSED gpointer params
 	sonarmeta->sound_speed = 0;
 	sonarmeta->sample_rate = 0;
 	sonarmeta->t0 = 0;
+
+  g_mutex_init(&gst_sonar_shared_data.m);
+  gst_sonar_shared_data.initial_time = 0;
 
 	return TRUE;
 }
