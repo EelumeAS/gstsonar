@@ -135,7 +135,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
       if (gst_sonar_shared_data.initial_time == 0)
       {
         GST_DEBUG_OBJECT(nmeaparse, "setting global initial time from %llu", timestamp);
-        nmeaparse->initial_time = gst_sonar_shared_data.initial_time = timestamp - GST_SONAR_INITIAL_TIME_REWIND;
+        nmeaparse->initial_time = gst_sonar_shared_data.initial_time = timestamp;
       }
       else if (gst_sonar_shared_data.initial_time * 10 > timestamp)
       {
