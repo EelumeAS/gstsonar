@@ -212,7 +212,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
     if (gst_sonar_shared_data.initial_time == 0)
     {
       GST_DEBUG_OBJECT(sonarparse, "setting global initial time from %llu", timestamp);
-      sonarparse->initial_time = gst_sonar_shared_data.initial_time = timestamp - GST_SONAR_INITIAL_TIME_REWIND;
+      sonarparse->initial_time = gst_sonar_shared_data.initial_time = timestamp;
     }
     else if (gst_sonar_shared_data.initial_time * 10 > timestamp)
     {

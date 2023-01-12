@@ -63,7 +63,6 @@ const GstMetaInfo * gst_sonar_meta_get_info (void);
 #define GST_SONAR_META_GET(buf) ((GstSonarMeta *)gst_buffer_get_meta(buf,gst_sonar_meta_api_get_type()))
 #define GST_SONAR_META_ADD(buf) ((GstSonarMeta *)gst_buffer_add_meta(buf,gst_sonar_meta_get_info(),NULL))
 
-#define GST_SONAR_INITIAL_TIME_REWIND (guint64)2e9 // start some seconds before first sample
 typedef struct
 {
   GMutex m;
