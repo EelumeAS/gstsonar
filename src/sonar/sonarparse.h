@@ -3,8 +3,9 @@
 #define __GST_SONARPARSE_H__
 
 #include <gst/gst.h>
-
 #include <gst/base/gstbaseparse.h>
+
+#include "navi.h"
 
 G_BEGIN_DECLS
 
@@ -27,9 +28,11 @@ struct _GstSonarparse
   GstBaseParse baseparse;
 
   /* < private > */
+  wbms_type_t wbms_type;
   guint32 n_beams;
   guint32 resolution;
   guint32 framerate;
+  gchar *caps_name;
 
   guint64 initial_time;
 

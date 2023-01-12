@@ -37,14 +37,15 @@ View sonar data from file:
 gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! sonarsink zoom=5
 ```
 
-View sonar data from tcp:
+View sonar data (multibeam/fls or bathymetry) from tcp:
 
 ```
 gst-launch-1.0 tcpclientsrc host=192.168.3.58 port=2211 ! sonarparse ! sonarsink zoom=12
+gst-launch-1.0 tcpclientsrc host=192.168.3.121 port=2210 ! sonarparse ! sonarsink zoom=.04
 ```
 
 
-View sonar data from file as normal image:
+View sonar data from file as normal image (only for fls data):
 ```
 gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! sonarconvert ! videoconvert ! autovideosink
 ```

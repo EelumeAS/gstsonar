@@ -12,7 +12,6 @@
  */
 
 #include "sonarparse.h"
-#include "navi.h"
 
 #include <stdio.h>
 #include <sys/time.h>
@@ -40,12 +39,20 @@ static GstStaticPadTemplate gst_sonarparse_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("sonar/multibeam, "
+    GST_STATIC_CAPS (
+        "sonar/multibeam, "
         //"format = (string) { norbit }, "
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) [ 0, MAX ], "
         "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true"
+        "parsed = (boolean) true ;"
+
+        "sonar/bathymetry, "
+        //"format = (string) { norbit }, "
+        "n_beams = (int) [ 0, MAX ],"
+        "resolution = (int) 1, "
+        "framerate = (fraction) [ 0/1, MAX ], "
+        "parsed = (boolean) true ;"
         )
     );
 
@@ -53,7 +60,7 @@ static GstStaticPadTemplate gst_sonarparse_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
   GST_PAD_SINK,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS ("sonar/multibeam")
+  GST_STATIC_CAPS ("sonar/multibeam; sonar/bathymetry")
   );
 
 GstSonarSharedData gst_sonar_shared_data;
@@ -100,48 +107,104 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
   // skip over preamble
   gst_byte_reader_skip (&reader, *skipsize);
 
-  //// read sonar type
-  //guint32 sonar_type;
-  //if (!gst_byte_reader_get_uint32_le (&reader, &sonar_type))
-  //  exit;
-
-  //if (gst_byte_reader_get_remaining (&reader) < sizeof(packet_header_t))
-  //  exit;
-
   const guint8 *header_data = NULL;
   const packet_header_t* header = NULL;
   if (!gst_byte_reader_get_data (&reader, sizeof(*header), &header_data))
     exit;
   header = (const packet_header_t*)header_data;
 
-  if (header->type != 2)
+  if (header->size < sizeof(packet_header_t))
   {
-    GST_ERROR_OBJECT(sonarparse, "sonar type not implemented: %d", header->type);
+    GST_ERROR_OBJECT(sonarparse, "size specified in header is too small: %d", header->size);
     gst_buffer_unmap (frame->buffer, &mapinfo);
     return GST_FLOW_ERROR;
   }
 
-  guint32 size = header->size;
-
-  if (size < sizeof(packet_header_t))
-  {
-    GST_ERROR_OBJECT(sonarparse, "size specified in header is too small: %d", size);
-    gst_buffer_unmap (frame->buffer, &mapinfo);
-    return GST_FLOW_ERROR;
-  }
-
-  if (mapinfo.size < size)
+  if (mapinfo.size < header->size)
     exit;
 
-  gst_base_parse_set_min_frame_size (baseparse, size);
+  gst_base_parse_set_min_frame_size (baseparse, header->size);
 
+  // parse sub_header
   const guint8 *sub_header_data = NULL;
-  const fls_data_header_t* sub_header = NULL;
-  if (!gst_byte_reader_get_data (&reader, sizeof(*sub_header), &sub_header_data))
-    exit;
-  sub_header = (const fls_data_header_t* )sub_header_data;
+  double sub_header_time;
+  guint32 old_n_beams = sonarparse->n_beams;
+  guint32 old_resolution = sonarparse->resolution;
+  guint32 old_framerate = sonarparse->framerate;
 
-  guint64 timestamp = (guint64)(sub_header->time * 1e9);
+  switch(header->type)
+  {
+    case WBMS_BATH:
+    {
+      GST_DEBUG_OBJECT(sonarparse, "sonar type is bathymetry");
+      const bath_data_header_t* sub_header;
+      if (!gst_byte_reader_get_data (&reader, sizeof(*sub_header), &sub_header_data))
+        exit;
+      sub_header = (bath_data_header_t*)sub_header_data;
+
+      sub_header_time = sub_header->time;
+      sonarparse->n_beams = sub_header->N;
+      sonarparse->resolution = 1;
+      sonarparse->framerate = sub_header->ping_rate;
+
+      sonarparse->sound_speed = sub_header->snd_velocity;
+      sonarparse->sample_rate = sub_header->sample_rate;
+      sonarparse->t0 = 0; // t0 doesn't apply
+      sonarparse->caps_name = "sonar/bathymetry";
+      break;
+    }
+    case WBMS_FLS: // fls
+    {
+      GST_DEBUG_OBJECT(sonarparse, "sonar type is fls");
+      const fls_data_header_t* sub_header;
+      if (!gst_byte_reader_get_data (&reader, sizeof(*sub_header), &sub_header_data))
+        exit;
+      sub_header = (fls_data_header_t*)sub_header_data;
+
+      sub_header_time = sub_header->time;
+      sonarparse->n_beams = sub_header->N;
+      sonarparse->resolution = sub_header->M;
+      sonarparse->framerate = sub_header->ping_rate;
+
+      sonarparse->sound_speed = sub_header->snd_velocity;
+      sonarparse->sample_rate = sub_header->sample_rate;
+      sonarparse->t0 = sub_header->t0;
+      sonarparse->caps_name = "sonar/multibeam";
+      break;
+    }
+    default:
+      GST_ERROR_OBJECT(sonarparse, "sonar type not recognized: %d", header->type);
+      gst_buffer_unmap (frame->buffer, &mapinfo);
+      return GST_FLOW_ERROR;
+  }
+
+  // set caps
+  if ((sonarparse->n_beams != old_n_beams)
+    || (sonarparse->resolution != old_resolution)
+    || (sonarparse->framerate != old_framerate))
+  {
+    GstCaps *caps = gst_caps_new_simple (sonarparse->caps_name
+      , "n_beams", G_TYPE_INT, sonarparse->n_beams
+      , "resolution", G_TYPE_INT, sonarparse->resolution
+      , "framerate", GST_TYPE_FRACTION, sonarparse->framerate, 1
+      , NULL);
+
+    GST_DEBUG_OBJECT (sonarparse, "setting downstream caps on %s:%s to %" GST_PTR_FORMAT,
+      GST_DEBUG_PAD_NAME (GST_BASE_PARSE_SRC_PAD (sonarparse)), caps);
+
+    if (!gst_pad_set_caps (GST_BASE_PARSE_SRC_PAD (sonarparse), caps))
+    {
+      GST_ERROR_OBJECT(sonarparse, "couldn't set src caps");
+      gst_caps_unref (caps);
+      gst_buffer_unmap (frame->buffer, &mapinfo);
+      return GST_FLOW_ERROR;
+    }
+
+    gst_caps_unref (caps);
+  }
+
+  // set timestamp
+  guint64 timestamp = (guint64)(sub_header_time * 1e9);
   if (sonarparse->initial_time == 0)
   {
     g_mutex_lock(&gst_sonar_shared_data.m);
@@ -177,62 +240,31 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
   else
     GST_BUFFER_PTS (frame->buffer) = GST_BUFFER_DTS (frame->buffer) = timestamp - sonarparse->initial_time;
 
-  GST_BUFFER_DURATION (frame->buffer) = (guint64)(1e9/sub_header->ping_rate);
+  GST_BUFFER_DURATION (frame->buffer) = (guint64)(1e9/sonarparse->framerate);
 
-  GST_LOG_OBJECT(sonarparse, "time: %f %llu", sub_header->time, GST_BUFFER_PTS (frame->buffer));
-
-  static double prev_pts = 0;
-  double pts = sub_header->time;
-  static double fps = 0;
-  if (prev_pts != 0)
+  // debug framerate
   {
-    double new_fps = 1./(pts-prev_pts);
-    if (fps == 0)
-      fps = new_fps;
-    else
-      fps = 0.3*fps + .7 * new_fps;
-    GST_LOG_OBJECT(sonarparse, "fps: %f, %f", new_fps, fps);
-  }
-  prev_pts = pts;
-
-
-  guint32 old_n_beams = sonarparse->n_beams;
-  guint32 old_resolution = sonarparse->resolution;
-  guint32 old_framerate = sonarparse->framerate;
-
-  sonarparse->n_beams = sub_header->N;
-  sonarparse->resolution = sub_header->M;
-  sonarparse->framerate = sub_header->ping_rate;
-
-  if ((sonarparse->n_beams != old_n_beams)
-    || (sonarparse->resolution != old_resolution)
-    || (sonarparse->framerate != old_framerate))
-  {
-    GstCaps *caps = gst_caps_new_simple ("sonar/multibeam", "n_beams", G_TYPE_INT, sonarparse->n_beams, "resolution", G_TYPE_INT, sonarparse->resolution, "framerate", GST_TYPE_FRACTION, sonarparse->framerate, 1, NULL);
-
-    GST_DEBUG_OBJECT (sonarparse, "setting downstream caps on %s:%s to %" GST_PTR_FORMAT,
-      GST_DEBUG_PAD_NAME (GST_BASE_PARSE_SRC_PAD (sonarparse)), caps);
-
-    if (!gst_pad_set_caps (GST_BASE_PARSE_SRC_PAD (sonarparse), caps))
+    GST_LOG_OBJECT(sonarparse, "time: %f %llu", sub_header_time, GST_BUFFER_PTS (frame->buffer));
+    static double prev_pts = 0;
+    double pts = sub_header_time;
+    static double fps = 0;
+    if (prev_pts != 0)
     {
-      GST_ERROR_OBJECT(sonarparse, "couldn't set src caps");
-      gst_caps_unref (caps);
-      gst_buffer_unmap (frame->buffer, &mapinfo);
-      return GST_FLOW_ERROR;
+      double new_fps = 1./(pts-prev_pts);
+      if (fps == 0)
+        fps = new_fps;
+      else
+        fps = 0.3*fps + .7 * new_fps;
+      GST_LOG_OBJECT(sonarparse, "fps: %f, %f", new_fps, fps);
     }
-
-    gst_caps_unref (caps);
+    prev_pts = pts;
   }
-
-  sonarparse->sound_speed = sub_header->snd_velocity;
-  sonarparse->sample_rate = sub_header->sample_rate;
-  sonarparse->t0 = sub_header->t0;
 
   #undef exit
 
   gst_buffer_unmap (frame->buffer, &mapinfo);
 
-  return gst_base_parse_finish_frame (baseparse, frame, size);
+  return gst_base_parse_finish_frame (baseparse, frame, header->size);
 }
 
 static GstFlowReturn
@@ -330,6 +362,7 @@ gst_sonarparse_init (GstSonarparse * sonarparse)
   sonarparse->n_beams = 0;
   sonarparse->resolution = 0;
   sonarparse->framerate = 0;
+  sonarparse->caps_name = NULL;
 
   sonarparse->initial_time = 0;
 }
