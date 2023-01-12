@@ -15,32 +15,6 @@ inline uint64_t nanoseconds() {
   return (uint64_t)ts.tv_sec * (uint64_t)1e9 + (uint64_t)ts.tv_nsec;
 }
 
-typedef struct
-{
-    enum __attribute__ ((__packed__)) // IMPORTANT: the enum should only be one byte
-    {
-        NMEA_EIHEA = 2,
-        NMEA_EIORI = 3,
-        NMEA_EIDEP = 4,
-        NMEA_EIPOS = 8,
-        WBMS_BATH = 9,
-        WBMS_FLS = 10,
-        SBD_HEADER = 21,
-    } entry_type;
-
-    char dont_care[3];
-    int32_t relative_time;
-
-    struct
-    {
-        int32_t tv_sec;
-        int32_t tv_usec;
-    } absolute_time;
-
-    uint32_t entry_size;
-} sbd_entry_header_t;
-static_assert(sizeof(sbd_entry_header_t) == 20);
-
 #pragma pack(4)
 
 /** Struct for a single detection point in a type 1 (bathy) packet*/
@@ -56,10 +30,16 @@ typedef struct{
 }detectionpoint_t;
 static_assert(sizeof(detectionpoint_t) == 20);
 
+typedef enum // : uint32_t
+{
+  WBMS_BATH = 1,
+  WBMS_FLS = 2,
+} wbms_type_t;
+
 /** COMMON HEADER, common packet header struct for all WBMS data packets*/
 typedef struct{
     uint32_t preamble;              /**< Preable / Magic number, to simplify detection of a valid packet in a stream or blob of data. Allways 0xDEADBEEF */
-    uint32_t type;                  /**< WBMS packet type */ 
+    wbms_type_t type;               /**< WBMS packet type */
     uint32_t size;                  /**< Total packet size (including headers) in bytes */
     uint32_t version;               /**< WBMS packet version     */
     uint32_t RESERVED;              /**< 4 bytes reserved for furure use */

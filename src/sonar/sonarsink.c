@@ -12,7 +12,6 @@
  */
 
 #include "sonarsink.h"
-#include "navi.h"
 #include "openglWp.h"
 #include "sonarparse.h"
 
@@ -37,7 +36,7 @@ static GstStaticPadTemplate gst_sonarsink_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("sonar/multibeam")
+    GST_STATIC_CAPS ("sonar/multibeam; sonar/bathymetry")
     );
 
 static GstFlowReturn
@@ -56,33 +55,68 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
     return GST_FLOW_ERROR;
   }
 
-  const char* payload = mapinfo.data + sizeof(packet_header_t) + sizeof(fls_data_header_t);
-
-  for (int range_index=0; range_index < sonarsink->resolution; ++range_index)
+  switch(sonarsink->wbms_type)
   {
-    for (int beam_index=0; beam_index < sonarsink->n_beams; ++beam_index)
+    case WBMS_FLS:
     {
-      float beam_angle = ((const float*)((const uint16_t*)payload + sonarsink->n_beams * sonarsink->resolution))[beam_index];
-      uint16_t beam_intensity = ((const uint16_t*)payload)[range_index * sonarsink->n_beams + beam_index];
-      float distance = ((meta->t0 + range_index) * meta->sound_speed) / (2 * meta->sample_rate);
+      const uint16_t* beam_intensities = (const uint16_t*)(mapinfo.data + sizeof(packet_header_t) + sizeof(fls_data_header_t));
+      const float* beam_angles = (const float*)(beam_intensities + sonarsink->n_beams * sonarsink->resolution);
 
-      int vertex_index = 3 * (beam_index * sonarsink->resolution + range_index);
-      float* vertex = sonarsink->vertices + vertex_index;
+      for (int range_index=0; range_index < sonarsink->resolution; ++range_index)
+      {
+        for (int beam_index=0; beam_index < sonarsink->n_beams; ++beam_index)
+        {
+          uint16_t beam_intensity = beam_intensities[range_index * sonarsink->n_beams + beam_index];
+          float beam_angle = beam_angles[beam_index];
+          //float range = ((meta->t0 + range_index) * meta->sound_speed) / (2 * meta->sample_rate);
 
-      float range_norm = (float)range_index / (float)sonarsink->resolution;
+          int vertex_index = 3 * (beam_index * sonarsink->resolution + range_index);
+          float* vertex = sonarsink->vertices + vertex_index;
 
-      vertex[0] = -sin(beam_angle) * range_norm * sonarsink->zoom;
-      vertex[1] = -1 + cos(beam_angle) * range_norm * sonarsink->zoom;
-      vertex[2] = -1;
+          float range_norm = (float)range_index / (float)sonarsink->resolution;
+
+          vertex[0] = -sin(beam_angle) * range_norm * sonarsink->zoom;
+          vertex[1] = -1 + cos(beam_angle) * range_norm * sonarsink->zoom;
+          vertex[2] = -1;
 
 
-      const float iscale = 1.f/3e3;
-      float I = beam_intensity * iscale;
-      I = I > 1 ? 1 : I;
-      float* color = sonarsink->colors + vertex_index;
-      color[0] = I;
-      color[1] = I;
-      color[2] = I;
+          const float iscale = 1.f/3e3;
+          float I = beam_intensity * iscale;
+          I = I > 1 ? 1 : I;
+          float* color = sonarsink->colors + vertex_index;
+          color[0] = I;
+          color[1] = I;
+          color[2] = I;
+        }
+      }
+      break;
+    }
+    case WBMS_BATH:
+    {
+      g_assert(sonarsink->resolution == 1);
+
+      const detectionpoint_t* detection_points = (const detectionpoint_t*)(mapinfo.data + sizeof(packet_header_t) + sizeof(bath_data_header_t));
+
+      for (int beam_index=0; beam_index < sonarsink->n_beams; ++beam_index)
+      {
+        const detectionpoint_t* dp = detection_points + beam_index;
+
+        float range = (dp->sample_number * meta->sound_speed) / (2 * meta->sample_rate);
+
+        int vertex_index = 3 * beam_index;
+        float* vertex = sonarsink->vertices + vertex_index;
+
+        vertex[0] = sin(dp->angle) * range * sonarsink->zoom;
+        vertex[1] = -cos(dp->angle) * range * sonarsink->zoom;
+        vertex[2] = -1;
+
+
+        float* color = sonarsink->colors + vertex_index;
+        color[0] = 1;
+        color[1] = 1;
+        color[2] = 1;
+      }
+      break;
     }
   }
 
@@ -139,26 +173,20 @@ gst_sonarsink_set_caps (GstBaseSink * basesink, GstCaps * caps)
 
   GST_DEBUG_OBJECT(sonarsink, "caps structure: %s\n", gst_structure_to_string(s));
 
-  if (((v_n_beams = gst_structure_get_value(s, "n_beams")) == NULL)
-    || (!G_VALUE_HOLDS_INT (v_n_beams))
-    || ((v_resolution = gst_structure_get_value(s, "resolution")) == NULL)
-    || (!G_VALUE_HOLDS_INT (v_resolution)))
-  {
-    GST_DEBUG_OBJECT(sonarsink, "no details in caps\n");
+  gint n_beams, resolution;
+  const gchar *caps_name;
 
-    return FALSE;
-  }
-  else
+  if ((caps_name = gst_structure_get_name(s))
+    && gst_structure_get_int(s, "n_beams", &n_beams)
+    && gst_structure_get_int(s, "resolution", &resolution))
   {
-    guint32 n_beams = g_value_get_int (v_n_beams);
-    guint32 resolution = g_value_get_int (v_resolution);
-
     GST_OBJECT_LOCK (sonarsink);
     guint32 old_n_beams = sonarsink->n_beams;
     guint32 old_resolution = sonarsink->resolution;
 
-    sonarsink->n_beams = n_beams;
-    sonarsink->resolution = resolution;
+    GST_DEBUG_OBJECT(sonarsink, "got caps details caps_name: %s, n_beams: %d, resolution: %d", caps_name, n_beams, resolution);
+    sonarsink->n_beams = (guint32)n_beams;
+    sonarsink->resolution = (guint32)resolution;
 
     if ((sonarsink->n_beams != old_n_beams)
       || (sonarsink->resolution != old_resolution))
@@ -171,9 +199,14 @@ gst_sonarsink_set_caps (GstBaseSink * basesink, GstCaps * caps)
       sonarsink->colors = (float*)malloc(size);
     }
 
-    GST_OBJECT_UNLOCK (sonarsink);
+    if (strcmp(caps_name, "sonar/multibeam") == 0)
+      sonarsink->wbms_type = WBMS_FLS;
+    else if (strcmp(caps_name, "sonar/bathymetry") == 0)
+      sonarsink->wbms_type = WBMS_BATH;
+    else
+      g_assert_not_reached();
 
-    GST_DEBUG_OBJECT(sonarsink, "got caps details n_beams: %d, resolution: %d", n_beams, resolution);
+    GST_OBJECT_UNLOCK (sonarsink);
 
     // initialize visualization once
     if (sonarsink->init_wp)
@@ -184,6 +217,12 @@ gst_sonarsink_set_caps (GstBaseSink * basesink, GstCaps * caps)
     }
 
     return TRUE;
+  }
+  else
+  {
+    GST_DEBUG_OBJECT(sonarsink, "no details in caps\n");
+
+    return FALSE;
   }
 }
 

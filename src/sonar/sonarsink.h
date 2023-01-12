@@ -2,8 +2,9 @@
 #define __GST_SONARSINK_H__
 
 #include <gst/gst.h>
-
 #include <gst/base/gstbasesink.h>
+
+#include "navi.h"
 
 G_BEGIN_DECLS
 
@@ -26,6 +27,7 @@ struct _GstSonarsink
   GstBaseSink basesink;
 
   /* < private > */
+  wbms_type_t wbms_type;
   guint32 n_beams;
   guint32 resolution;
 
