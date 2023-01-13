@@ -59,14 +59,14 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
   {
     case WBMS_FLS:
     {
-      const uint16_t* beam_intensities = (const uint16_t*)(mapinfo.data + sizeof(packet_header_t) + sizeof(fls_data_header_t));
+      const int16_t* beam_intensities = (const int16_t*)(mapinfo.data + sizeof(packet_header_t) + sizeof(fls_data_header_t));
       const float* beam_angles = (const float*)(beam_intensities + sonarsink->n_beams * sonarsink->resolution);
 
       for (int range_index=0; range_index < sonarsink->resolution; ++range_index)
       {
         for (int beam_index=0; beam_index < sonarsink->n_beams; ++beam_index)
         {
-          uint16_t beam_intensity = beam_intensities[range_index * sonarsink->n_beams + beam_index];
+          int16_t beam_intensity = beam_intensities[range_index * sonarsink->n_beams + beam_index];
           float beam_angle = beam_angles[beam_index];
           //float range = ((meta->t0 + range_index) * meta->sound_speed) / (2 * meta->sample_rate);
 
@@ -79,10 +79,14 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
           vertex[1] = -1 + cos(beam_angle) * range_norm * sonarsink->zoom;
           vertex[2] = -1;
 
-
-          const float iscale = 1.f/3e3;
+          const float iscale = 1.f/5e4;
           float I = beam_intensity * iscale;
-          I = I > 1 ? 1 : I;
+          if (I > 1)
+          {
+            GST_WARNING_OBJECT(sonarsink, "intensity too large: %d > %f", beam_intensity, 1.f / iscale);
+            I = 1;
+          }
+
           float* color = sonarsink->colors + vertex_index;
           color[0] = I;
           color[1] = I;

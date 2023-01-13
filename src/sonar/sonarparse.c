@@ -161,6 +161,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
         exit;
       sub_header = (fls_data_header_t*)sub_header_data;
 
+      g_assert(sub_header->dtype == 3); // int16
       sub_header_time = sub_header->time;
       sonarparse->n_beams = sub_header->N;
       sonarparse->resolution = sub_header->M;

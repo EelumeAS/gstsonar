@@ -18,6 +18,9 @@
 #include <stdio.h>
 #include <sys/time.h>
 
+#define SONAR_CAPS "sonar/multibeam; sonar/bathymetry"
+#define TELEMETRY_CAPS "application/telemetry"
+
 GST_DEBUG_CATEGORY_STATIC(sonarmux_debug);
 #define GST_CAT_DEFAULT sonarmux_debug
 
@@ -33,21 +36,21 @@ static GstStaticPadTemplate gst_sonarmux_sonar_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sonar",
     GST_PAD_SINK,
     GST_PAD_REQUEST,
-    GST_STATIC_CAPS ("sonar/multibeam")
+    GST_STATIC_CAPS (SONAR_CAPS)
     );
 
 static GstStaticPadTemplate gst_sonarmux_telemetry_sink_template =
 GST_STATIC_PAD_TEMPLATE ("tel",
     GST_PAD_SINK,
     GST_PAD_REQUEST,
-    GST_STATIC_CAPS ("application/telemetry")
+    GST_STATIC_CAPS (TELEMETRY_CAPS)
     );
 
 static GstStaticPadTemplate gst_sonarmux_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("sonar/multibeam")
+    GST_STATIC_CAPS (SONAR_CAPS)
     );
 
 
@@ -95,13 +98,15 @@ gst_sonarmux_create_new_pad (GstAggregator * aggregator, GstPadTemplate * templ,
 {
   GstSonarmux *sonarmux = GST_SONARMUX (aggregator);
 
-  GST_DEBUG_OBJECT(sonarmux, "create_new_pad: req_name: %s, template: %s, direction: %d", req_name, gst_caps_to_string(templ->caps), templ->direction);
+  const gchar *templ_caps = gst_caps_to_string(templ->caps);
+
+  GST_DEBUG_OBJECT(sonarmux, "create_new_pad: req_name: %s, template: %s, direction: %d", req_name, templ_caps, templ->direction);
 
   GstAggregatorPad * pad = g_object_new (GST_TYPE_SONARMUX_PAD, "name", req_name, "direction", templ->direction, "template", templ, NULL);
 
-  if (strcmp(req_name, "sonar") == 0)
+  if (strcmp(templ_caps, SONAR_CAPS) == 0)
     sonarmux->sonarsink = (GstPad*)pad;
-  else if (strcmp(req_name, "tel") == 0)
+  else if (strcmp(templ_caps, TELEMETRY_CAPS) == 0)
     sonarmux->telsink = (GstPad*)pad;
   else
     g_assert_not_reached();
