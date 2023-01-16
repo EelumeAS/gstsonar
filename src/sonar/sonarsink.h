@@ -40,6 +40,7 @@ struct _GstSonarsink
   GstState playpause; // which state to set on next space press
 
   float zoom; // factor to scale ranges with
+  float gain; // factor to scale intensities with
 };
 
 struct _GstSonarsinkClass

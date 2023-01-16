@@ -28,9 +28,11 @@ enum
 {
   PROP_0,
   PROP_ZOOM,
+  PROP_GAIN,
 };
 
 #define DEFAULT_PROP_ZOOM 1
+#define DEFAULT_PROP_GAIN 1
 
 static GstStaticPadTemplate gst_sonarsink_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
@@ -44,15 +46,18 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
 {
   GstSonarsink *sonarsink = GST_SONARSINK (basesink);
 
+  GST_OBJECT_LOCK (sonarsink);
+
   //GstSonarMeta *meta = GST_SONAR_META_GET(buf);
   GstSonarMetaData *meta_data = &(GST_SONAR_META_GET(buf))->data;
 
-  GST_DEBUG_OBJECT(sonarsink, "%lu: rendering buffer: %p, width n_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d"
-    , buf->pts, buf, sonarsink->n_beams, sonarsink->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0);
+  GST_DEBUG_OBJECT(sonarsink, "%lu: rendering buffer: %p, width n_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
+    , buf->pts, buf, sonarsink->n_beams, sonarsink->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0, meta_data->gain);
 
   GstMapInfo mapinfo;
   if (!gst_buffer_map (buf, &mapinfo, GST_MAP_READ))
   {
+    GST_OBJECT_UNLOCK (sonarsink);
     return GST_FLOW_ERROR;
   }
 
@@ -62,6 +67,8 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
     {
       const int16_t* beam_intensities = (const int16_t*)(mapinfo.data + sizeof(packet_header_t) + sizeof(fls_data_header_t));
       const float* beam_angles = (const float*)(beam_intensities + sonarsink->n_beams * sonarsink->resolution);
+
+      const float total_gain = sonarsink->gain / meta_data->gain;
 
       for (int range_index=0; range_index < sonarsink->resolution; ++range_index)
       {
@@ -80,12 +87,14 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
           vertex[1] = -1 + cos(beam_angle) * range_norm * sonarsink->zoom;
           vertex[2] = -1;
 
-          const float iscale = 1.f/5e4;
-          float I = beam_intensity * iscale;
+          float I = total_gain * beam_intensity;
           if (I > 1)
           {
-            GST_WARNING_OBJECT(sonarsink, "intensity too large: %d > %f", beam_intensity, 1.f / iscale);
+            GST_DEBUG_OBJECT(sonarsink, "intensity too large: %d > %f", beam_intensity, total_gain);
             I = 1;
+            //gst_buffer_unmap (buf, &mapinfo);
+            //GST_OBJECT_UNLOCK (sonarsink);
+            //return GST_FLOW_ERROR;
           }
 
           float* color = sonarsink->colors + vertex_index;
@@ -135,12 +144,14 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
   while ( SDL_PollEvent(&e) ) {
     switch (e.type) {
       case SDL_QUIT:
+        GST_OBJECT_UNLOCK (sonarsink);
         return GST_FLOW_EOS;
       break;
       case SDL_KEYDOWN:
       {
         switch (e.key.keysym.sym) {
           case SDLK_ESCAPE:
+            GST_OBJECT_UNLOCK (sonarsink);
             return GST_FLOW_EOS;
           case SDLK_SPACE:
           {
@@ -164,6 +175,8 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
       }
     }
   }
+
+  GST_OBJECT_UNLOCK (sonarsink);
 
   return GST_FLOW_OK;
 }
@@ -242,6 +255,9 @@ gst_sonarsink_set_property (GObject * object, guint prop_id, const GValue * valu
     case PROP_ZOOM:
       sonarsink->zoom = g_value_get_double (value);
       break;
+    case PROP_GAIN:
+      sonarsink->gain = g_value_get_double (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -258,6 +274,9 @@ gst_sonarsink_get_property (GObject * object, guint prop_id, GValue * value,
   switch (prop_id) {
     case PROP_ZOOM:
       g_value_set_double (value, sonarsink->zoom);
+      break;
+    case PROP_GAIN:
+      g_value_set_double (value, sonarsink->gain);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -297,6 +316,11 @@ gst_sonarsink_class_init (GstSonarsinkClass * klass)
           "Zoom", G_MINDOUBLE, G_MAXDOUBLE, DEFAULT_PROP_ZOOM,
           G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (G_OBJECT_CLASS (klass), PROP_GAIN,
+      g_param_spec_double ("gain", "gain",
+          "Gain", G_MINDOUBLE, G_MAXDOUBLE, DEFAULT_PROP_GAIN,
+          G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE | G_PARAM_STATIC_STRINGS));
+
   gst_element_class_set_static_metadata (gstelement_class, "Sonarsink",
       "Sink",
       "TODO", // TODO
@@ -316,4 +340,5 @@ gst_sonarsink_init (GstSonarsink * sonarsink)
   sonarsink->playpause = GST_STATE_PAUSED;
 
   sonarsink->zoom = DEFAULT_PROP_ZOOM;
+  sonarsink->gain = DEFAULT_PROP_GAIN;
 }

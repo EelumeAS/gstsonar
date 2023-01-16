@@ -153,6 +153,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
         .sound_speed = sub_header->snd_velocity,
         .sample_rate = sub_header->sample_rate,
         .t0 = 0, // t0 doesn't apply
+        .gain = sub_header->gain,
       };
       break;
     }
@@ -176,6 +177,7 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
         .sound_speed = sub_header->snd_velocity,
         .sample_rate = sub_header->sample_rate,
         .t0 = sub_header->t0,
+        .gain = sub_header->gain,
       };
       break;
     }
