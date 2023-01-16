@@ -44,10 +44,11 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
 {
   GstSonarsink *sonarsink = GST_SONARSINK (basesink);
 
-  GstSonarMeta *meta = GST_SONAR_META_GET(buf);
+  //GstSonarMeta *meta = GST_SONAR_META_GET(buf);
+  GstSonarMetaData *meta_data = &(GST_SONAR_META_GET(buf))->data;
 
   GST_DEBUG_OBJECT(sonarsink, "%lu: rendering buffer: %p, width n_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d"
-    , buf->pts, buf, sonarsink->n_beams, sonarsink->resolution, meta->sound_speed, meta->sample_rate, meta->t0);
+    , buf->pts, buf, sonarsink->n_beams, sonarsink->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0);
 
   GstMapInfo mapinfo;
   if (!gst_buffer_map (buf, &mapinfo, GST_MAP_READ))
@@ -68,7 +69,7 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
         {
           int16_t beam_intensity = beam_intensities[range_index * sonarsink->n_beams + beam_index];
           float beam_angle = beam_angles[beam_index];
-          //float range = ((meta->t0 + range_index) * meta->sound_speed) / (2 * meta->sample_rate);
+          //float range = ((meta_data->t0 + range_index) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
 
           int vertex_index = 3 * (beam_index * sonarsink->resolution + range_index);
           float* vertex = sonarsink->vertices + vertex_index;
@@ -105,7 +106,7 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
       {
         const detectionpoint_t* dp = detection_points + beam_index;
 
-        float range = (dp->sample_number * meta->sound_speed) / (2 * meta->sample_rate);
+        float range = (dp->sample_number * meta_data->sound_speed) / (2 * meta_data->sample_rate);
 
         int vertex_index = 3 * beam_index;
         float* vertex = sonarsink->vertices + vertex_index;

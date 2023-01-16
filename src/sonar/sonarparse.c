@@ -143,14 +143,17 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
       sub_header = (bath_data_header_t*)sub_header_data;
 
       sub_header_time = sub_header->time;
+      sonarparse->caps_name = "sonar/bathymetry";
       sonarparse->n_beams = sub_header->N;
       sonarparse->resolution = 1;
       sonarparse->framerate = sub_header->ping_rate;
 
-      sonarparse->sound_speed = sub_header->snd_velocity;
-      sonarparse->sample_rate = sub_header->sample_rate;
-      sonarparse->t0 = 0; // t0 doesn't apply
-      sonarparse->caps_name = "sonar/bathymetry";
+      sonarparse->next_meta_data =
+      (GstSonarMetaData){
+        .sound_speed = sub_header->snd_velocity,
+        .sample_rate = sub_header->sample_rate,
+        .t0 = 0, // t0 doesn't apply
+      };
       break;
     }
     case WBMS_FLS: // fls
@@ -163,14 +166,17 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
 
       g_assert(sub_header->dtype == 3); // int16
       sub_header_time = sub_header->time;
+      sonarparse->caps_name = "sonar/multibeam";
       sonarparse->n_beams = sub_header->N;
       sonarparse->resolution = sub_header->M;
       sonarparse->framerate = sub_header->ping_rate;
 
-      sonarparse->sound_speed = sub_header->snd_velocity;
-      sonarparse->sample_rate = sub_header->sample_rate;
-      sonarparse->t0 = sub_header->t0;
-      sonarparse->caps_name = "sonar/multibeam";
+      sonarparse->next_meta_data =
+      (GstSonarMetaData){
+        .sound_speed = sub_header->snd_velocity,
+        .sample_rate = sub_header->sample_rate,
+        .t0 = sub_header->t0,
+      };
       break;
     }
     default:
@@ -274,9 +280,7 @@ gst_sonarparse_pre_push_frame (GstBaseParse * baseparse, GstBaseParseFrame * fra
   GstSonarparse *sonarparse = GST_SONARPARSE (baseparse);
 
   GstSonarMeta *meta = GST_SONAR_META_ADD(frame->buffer);
-  meta->sound_speed = sonarparse->sound_speed;
-  meta->sample_rate = sonarparse->sample_rate;
-  meta->t0 = sonarparse->t0;
+  meta->data = sonarparse->next_meta_data;
 
   return GST_FLOW_OK;
 }
@@ -365,6 +369,8 @@ gst_sonarparse_init (GstSonarparse * sonarparse)
   sonarparse->framerate = 0;
   sonarparse->caps_name = NULL;
 
+  sonarparse->next_meta_data = (GstSonarMetaData){0};
+
   sonarparse->initial_time = 0;
 }
 
@@ -386,9 +392,7 @@ static gboolean gst_sonar_meta_init(GstMeta *meta, G_GNUC_UNUSED gpointer params
 {
 	GstSonarMeta *sonarmeta = (GstSonarMeta *)meta;
 
-	sonarmeta->sound_speed = 0;
-	sonarmeta->sample_rate = 0;
-	sonarmeta->t0 = 0;
+	sonarmeta->data = (GstSonarMetaData){0};
 
   g_mutex_init(&gst_sonar_shared_data.m);
   gst_sonar_shared_data.initial_time = 0;
