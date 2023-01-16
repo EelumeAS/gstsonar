@@ -20,6 +20,7 @@ typedef struct
   float sound_speed; // Filtered sanitized sound speed in m/s
   float sample_rate; // Sample rate in reported range sample index, in Hz
   int t0; // Sample index of first sample in each beam
+  float gain; // Intensity value gain
 } GstSonarMetaData;
 
 typedef struct
