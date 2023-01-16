@@ -9,6 +9,27 @@
 
 G_BEGIN_DECLS
 
+// sonar meta
+GType gst_sonar_meta_api_get_type (void);
+const GstMetaInfo * gst_sonar_meta_get_info (void);
+#define GST_SONAR_META_GET(buf) ((GstSonarMeta *)gst_buffer_get_meta(buf,gst_sonar_meta_api_get_type()))
+#define GST_SONAR_META_ADD(buf) ((GstSonarMeta *)gst_buffer_add_meta(buf,gst_sonar_meta_get_info(),NULL))
+
+typedef struct
+{
+  float sound_speed; // Filtered sanitized sound speed in m/s
+  float sample_rate; // Sample rate in reported range sample index, in Hz
+  int t0; // Sample index of first sample in each beam
+} GstSonarMetaData;
+
+typedef struct
+{
+  GstMeta meta;
+  GstSonarMetaData data;
+
+} GstSonarMeta;
+
+// sonarparse
 #define GST_TYPE_SONARPARSE \
   (gst_sonarparse_get_type())
 #define GST_SONARPARSE(obj) \
@@ -36,9 +57,7 @@ struct _GstSonarparse
 
   guint64 initial_time;
 
-  gfloat sound_speed;
-  gfloat sample_rate;
-  guint32 t0;
+  GstSonarMetaData next_meta_data;
 };
 
 struct _GstSonarparseClass
@@ -47,21 +66,6 @@ struct _GstSonarparseClass
 };
 
 GType gst_sonarparse_get_type (void);
-
-// sonar meta
-typedef struct
-{
-  GstMeta meta;
-
-  float sound_speed; // Filtered sanitized sound speed in m/s
-  float sample_rate; // Sample rate in reported range sample index, in Hz
-  int t0; // Sample index of first sample in each beam
-} GstSonarMeta;
-
-GType gst_sonar_meta_api_get_type (void);
-const GstMetaInfo * gst_sonar_meta_get_info (void);
-#define GST_SONAR_META_GET(buf) ((GstSonarMeta *)gst_buffer_get_meta(buf,gst_sonar_meta_api_get_type()))
-#define GST_SONAR_META_ADD(buf) ((GstSonarMeta *)gst_buffer_add_meta(buf,gst_sonar_meta_get_info(),NULL))
 
 typedef struct
 {
