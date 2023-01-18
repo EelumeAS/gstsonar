@@ -5,3 +5,4 @@
 *.SBD
 *.bin
 *.out
+/samples/out*.raw
