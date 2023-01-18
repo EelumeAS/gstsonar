@@ -15,7 +15,6 @@
 #include "sonarparse.h"
 
 #include <stdio.h>
-#include <sys/time.h>
 
 #include <gst/base/gstbytereader.h>
 

@@ -14,20 +14,20 @@
 #include "sonarparse.h"
 
 #include <stdio.h>
-#include <sys/time.h>
 
 #include <gst/base/gstbytereader.h>
 
 #define NORBIT_SONAR_PREFIX 0xefbeadde // deadbeef
 
-inline double ms()
-{
-  struct timeval tp;
-  gettimeofday(&tp, NULL);
-
-  double ms = (double)(tp.tv_sec)*1000 + (double)(tp.tv_usec)/1000;
-  return ms;
-}
+//#include <sys/time.h>
+//inline double ms()
+//{
+//  struct timeval tp;
+//  gettimeofday(&tp, NULL);
+//
+//  double ms = (double)(tp.tv_sec)*1000 + (double)(tp.tv_usec)/1000;
+//  return ms;
+//}
 
 GST_DEBUG_CATEGORY_STATIC(sonarparse_debug);
 #define GST_CAT_DEFAULT sonarparse_debug

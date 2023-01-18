@@ -1,7 +1,14 @@
-#include <SDL2/SDL.h>
+#include <assert.h>
+#include <stdio.h>
+
 #define GLEW_STATIC
 #include <GL/glew.h>
-#include <assert.h>
+
+#ifdef _WIN32
+#include <SDL.h>
+#else
+#include <SDL2/SDL.h>
+#endif
 
 //#define  WGL_SWAP_METHOD_ARB WGL_SWAP_EXCHANGE_ARB
 
@@ -19,32 +26,32 @@ GLuint color_vbo;
 
 uint32_t width, height;
 
-const GLchar* vertexSource = R"glsl(
-#version 300 es
-precision mediump float;
-layout(location = 0) in vec3 position;
-layout(location = 1) in vec3 color;
-smooth out vec4 Color;
-void main()
-{
-    gl_Position = vec4(position, 1.0);
-    //float tmpscalar = .4-(gl_Position.z)*.5;
-    //float scalar = clamp(tmpscalar, 0.0, 1.0);
-    //Color = vec4(scalar*color,1);
-    Color = vec4(color,1);
-}
-)glsl";
+const GLchar* vertexSource =
+"#version 300 es\n"
+"precision mediump float;"
+"layout(location = 0) in vec3 position;"
+"layout(location = 1) in vec3 color;\n"
+"smooth out vec4 Color;\n"
+"void main()\n"
+"{\n"
+"    gl_Position = vec4(position, 1.0);\n"
+"    //float tmpscalar = .4-(gl_Position.z)*.5;\n"
+"    //float scalar = clamp(tmpscalar, 0.0, 1.0);\n"
+"    //Color = vec4(scalar*color,1);\n"
+"    Color = vec4(color,1);\n"
+"}\n"
+;
 
-const GLchar* fragmentSource = R"glsl(
-#version 300 es
-precision mediump float;
-smooth in vec4 Color;
-out vec4 outColor;
-void main()
-{
-	outColor = Color;
-}
-)glsl";
+const GLchar* fragmentSource =
+"#version 300 es\n"
+"precision mediump float;\n"
+"smooth in vec4 Color;\n"
+"out vec4 outColor;\n"
+"void main()\n"
+"{\n"
+"	outColor = Color;\n"
+"}\n"
+;
 
 bool valid_shader(GLint shader)
 {

@@ -16,7 +16,6 @@
 #include "sonarparse.h"
 
 #include <stdio.h>
-#include <sys/time.h>
 
 #define SONAR_CAPS "sonar/multibeam; sonar/bathymetry"
 #define TELEMETRY_CAPS "application/telemetry"
