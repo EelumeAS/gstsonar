@@ -1,19 +1,17 @@
 #pragma once
 #include <stdint.h>
-#include <time.h>
-#include <sys/time.h>
 
 //#define JOIN(x,y) x ## y
 //#define ECHO(...) __VA_ARGS__
 //#define static_assert(...) void static_assert_helper(const char [__COUNTER__]) {_Static_assert(__VA_ARGS__); }
 #define static_assert(...)
 
-inline uint64_t nanoseconds() {
-  struct timespec ts;
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-
-  return (uint64_t)ts.tv_sec * (uint64_t)1e9 + (uint64_t)ts.tv_nsec;
-}
+//inline uint64_t nanoseconds() {
+//  struct timespec ts;
+//  clock_gettime(CLOCK_MONOTONIC, &ts);
+//
+//  return (uint64_t)ts.tv_sec * (uint64_t)1e9 + (uint64_t)ts.tv_nsec;
+//}
 
 #pragma pack(4)
 

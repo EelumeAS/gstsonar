@@ -16,7 +16,6 @@
 #include "sonarparse.h"
 
 #include <stdio.h>
-#include <sys/time.h>
 
 GST_DEBUG_CATEGORY_STATIC(sonarsink_debug);
 #define GST_CAT_DEFAULT sonarsink_debug

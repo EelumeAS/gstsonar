@@ -4,11 +4,25 @@ GStreamer elements for processing sonar data from [Norbit WBMS FLS](https://norb
 
 ## Prerequisites
 
+Ubuntu:
+
+```
+apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good libsdl2-dev libglew-dev
+```
+
+Windows:
+
 [GStreamer](https://gstreamer.freedesktop.org/download/)
 
-SDL2
+[SDL2](https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio-amd64/)
 
-OpenGL, GLEW
+[GLEW](https://sourceforge.net/projects/glew/)
+
+OpenGL (Preinstalled on Windows)
+
+For Windows, you must also manually add the dll file directories of SDL2 and GLEW to the %PATH% environment variable.
+Also, you must edit the paths to the libraries in CMakeLists.txt .
+Not sure how to avoid all the manual configuration in Windows ¯\\_(ツ)_/¯.
 
 ## Build
 
