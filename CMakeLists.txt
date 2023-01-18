@@ -26,7 +26,7 @@ set(EXT_LIBS gstbase-1.0 gstreamer-1.0 gobject-2.0 glib-2.0 glew32s OpenGL32 SDL
 
 set(CMAKE_INSTALL_PREFIX ${GSTREAMER_ROOT})
 ELSE()
-find_package(Gstreamer REQUIRED)
+find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-base-1.0)
 include_directories(${GST_INCLUDE_DIRS})
 set(EXT_LIBS ${GST_LIBRARIES} -lGLEW -lGL -lSDL2)
