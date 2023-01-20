@@ -21,17 +21,6 @@ G_BEGIN_DECLS
 typedef struct _GstNmeaparse GstNmeaparse;
 typedef struct _GstNmeaparseClass GstNmeaparseClass;
 
-typedef struct
-{
-  float pitch;
-  float roll;
-  float yaw;
-  float latitude;
-  float longitude;
-  float depth;
-  float altitude;
-} GstNmeaparseTelemetry;
-
 struct _GstNmeaparse
 {
   GstBaseParse baseparse;

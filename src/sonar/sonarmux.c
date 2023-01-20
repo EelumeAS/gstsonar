@@ -14,6 +14,7 @@
 #include "sonarmux.h"
 #include "navi.h"
 #include "sonarparse.h"
+#include "nmeaparse.h"
 
 #include <stdio.h>
 
@@ -57,34 +58,40 @@ static GstFlowReturn
 gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
 {
   GstSonarmux *sonarmux = GST_SONARMUX (aggregator);
-  GST_DEBUG_OBJECT(sonarmux, "aggregate");
-
-  //for (GList *l = GST_ELEMENT_CAST(sonarmux)->sinkpads; l; l = l->next)
-  //{
-  //  GstPad *pad = (GstPad*)l->data;
-  //  GstCaps *caps = gst_pad_get_current_caps(pad);
-  //  GstStructure *s = gst_caps_get_structure (caps, 0);
-  //  GST_DEBUG_OBJECT(sonarmux, "caps structure: %s", gst_structure_to_string(s));
-  //}
+  GST_TRACE_OBJECT(sonarmux, "aggregate");
 
   while (gst_aggregator_pad_has_buffer((GstAggregatorPad*)sonarmux->telsink))
   {
-    GST_DEBUG_OBJECT(sonarmux, "dropping buffer");
-    gst_aggregator_pad_drop_buffer((GstAggregatorPad*)sonarmux->telsink);
-    //GstBuffer *buf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->telsink);
-    //if (buf)
-    //{
-    //  GST_DEBUG_OBJECT(sonarmux, "tel time of buf %p: %llu", buf, buf->pts);
-    //  gst_buffer_unref(buf);
-    //}
+    GST_TRACE_OBJECT(sonarmux, "dropping buffer");
+    //gst_aggregator_pad_drop_buffer((GstAggregatorPad*)sonarmux->telsink);
+    GstBuffer *buf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->telsink);
+    GstMapInfo mapinfo;
+    if (buf)
+    {
+      if (!gst_buffer_map (buf, &mapinfo, GST_MAP_READ))
+      {
+        GST_WARNING_OBJECT(sonarmux, "couldn't map telemetry buffer at %p", buf);
+      }
+      else if (mapinfo.size != sizeof(GstSonarTelemetry))
+      {
+        GST_ERROR_OBJECT(sonarmux, "telemetry buffer at %p had wrong size %llu != %llu", buf, mapinfo.size, sizeof(GstSonarTelemetry));
+        gst_buffer_unmap(buf, &mapinfo);
+      }
+      else
+      {
+        GstSonarTelemetry *tel = (GstSonarTelemetry*)mapinfo.data;
+        GST_LOG_OBJECT(sonarmux, "%llu:\tgot telemetry buf %p: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f",
+          buf->pts, buf, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude);
+      }
+      gst_buffer_unref(buf);
+    }
   }
 
   GstBuffer *buf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->sonarsink);
   if (buf)
   {
     //GstSonarMeta *meta = GST_SONAR_META_GET(buf);
-    //GST_AGGREGATOR_PAD(aggregator->srcpad)->segment.position = GST_BUFFER_PTS (buf);
-    GST_DEBUG_OBJECT(sonarmux, "got buffer %p with time %llu", buf, buf->pts);
+    GST_LOG_OBJECT(sonarmux, "%llu:\tgot sonar buf %p", buf->pts, buf);
     return gst_aggregator_finish_buffer(aggregator, buf);
   }
   else

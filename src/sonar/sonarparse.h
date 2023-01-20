@@ -6,8 +6,22 @@
 #include <gst/base/gstbaseparse.h>
 
 #include "navi.h"
+#include "nmeaparse.h"
 
 G_BEGIN_DECLS
+
+// telemetry
+typedef struct
+{
+  float pitch;
+  float roll;
+  float yaw;
+  float latitude;
+  float longitude;
+  float depth;
+  float altitude;
+} GstSonarTelemetry;
+
 
 // sonar meta
 GType gst_sonar_meta_api_get_type (void);
@@ -21,6 +35,8 @@ typedef struct
   float sample_rate; // Sample rate in reported range sample index, in Hz
   int t0; // Sample index of first sample in each beam
   float gain; // Intensity value gain
+  GstSonarTelemetry tel; // interpolated telemetry data
+
 } GstSonarMetaData;
 
 typedef struct

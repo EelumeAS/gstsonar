@@ -76,7 +76,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
 
   GST_LOG_OBJECT(nmeaparse, "nmea entry of size %d: %.*s", nmea_size, nmea_size, mapinfo.data);
 
-  GstNmeaparseTelemetry* telemetry = g_malloc(sizeof(*telemetry));
+  GstSonarTelemetry* telemetry = g_malloc(sizeof(*telemetry));
   guint64 timestamp = 0;
   gdouble timeUTC;
   guint32 len;
@@ -94,26 +94,30 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   gdouble depth;
   gdouble altitude;
 
-  if (sscanf(mapinfo.data,"$EIHEA,%u,%lf,%lu,%lf*",&len,&timeUTC,&timestamp,&heading) == 4)
+  if ((sscanf(mapinfo.data,"$EIHEA,%u,%lf,%lu,%lf*",&len,&timeUTC,&timestamp,&heading) == 4)
+      && (heading != -1))
     *telemetry =
-    (GstNmeaparseTelemetry){
+    (GstSonarTelemetry){
       .yaw = heading,
     };
-  else if (sscanf(mapinfo.data,"$EIPOS,%u,%lf,%lu,%lf,%c,%lf,%c*",&len,&timeUTC,&timestamp,&latitude,&north, &longitude,&east) == 7)
+  else if ((sscanf(mapinfo.data,"$EIPOS,%u,%lf,%lu,%lf,%c,%lf,%c*",&len,&timeUTC,&timestamp,&latitude,&north,&longitude,&east) == 7)
+      && (latitude != -1) && (longitude != -1))
     *telemetry =
-    (GstNmeaparseTelemetry){
-      .latitude = latitude,
-      .longitude = longitude,
+    (GstSonarTelemetry){
+      .latitude = latitude * (north == 'N' ? 1 : -1),
+      .longitude = longitude * (east == 'E' ? 1 : -1),
     };
-  else if (sscanf(mapinfo.data,"$EIORI,%u,%lf,%lu,%lf,%lf*",&len,&timeUTC,&timestamp,&roll,&pitch) == 5)
+  else if ((sscanf(mapinfo.data,"$EIORI,%u,%lf,%lu,%lf,%lf*",&len,&timeUTC,&timestamp,&roll,&pitch) == 5)
+      && (roll != -1) && (pitch != -1))
     *telemetry =
-    (GstNmeaparseTelemetry){
+    (GstSonarTelemetry){
       .pitch = pitch,
       .roll = roll,
     };
-  else if (sscanf(mapinfo.data,"$EIDEP,%u,%lf,%lu,%lf,m,%lf,m*",&len,&timeUTC,&timestamp,&depth,&altitude) == 5)
+  else if ((sscanf(mapinfo.data,"$EIDEP,%u,%lf,%lu,%lf,m,%lf,m*",&len,&timeUTC,&timestamp,&depth,&altitude) == 5)
+      && (depth != -1) && (altitude != -1))
     *telemetry =
-    (GstNmeaparseTelemetry){
+    (GstSonarTelemetry){
       .depth = depth,
       .altitude = altitude,
     };
@@ -179,7 +183,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     else
       GST_BUFFER_PTS (frame->out_buffer) = GST_BUFFER_DTS (frame->out_buffer) = timestamp - nmeaparse->initial_time;
 
-    GST_LOG_OBJECT (nmeaparse, "created telemetry buffer %p with timestamp: %llu, pts: %llu", frame->out_buffer, timestamp, GST_BUFFER_PTS (frame->out_buffer));
+    GST_TRACE_OBJECT (nmeaparse, "created telemetry buffer %p with timestamp: %llu, pts: %llu", frame->out_buffer, timestamp, GST_BUFFER_PTS (frame->out_buffer));
 
     exit(gst_base_parse_finish_frame (baseparse, frame, nmea_size + 2));
   }
