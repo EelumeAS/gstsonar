@@ -6,7 +6,20 @@
 
 #include <gst/base/gstaggregator.h>
 
+#include "sonarparse.h"
+
 G_BEGIN_DECLS
+
+typedef struct
+{
+  GstSonarTelemetry tel;
+
+  guint64 attitude_time;
+  guint64 position_time;
+  guint64 depth_time;
+  guint64 altitude_time;
+
+} GstSonarTelemetryTimed;
 
 GType gst_sonarmux_pad_get_type (void);
 
@@ -56,7 +69,11 @@ struct _GstSonarmux
   GstPad *sonarsink;
   GstPad *telsink;
 
-  GQueue telbufs;
+  GstBuffer *sonarbuf; // the sonarbuf currently being interpolated
+  GQueue telbufs; // the telemetry buffers considered for interpolation
+
+  GstSonarTelemetryTimed pretel; // sonar frames are interpolated between pretel and posttel
+  GstSonarTelemetryTimed posttel;
 };
 
 struct _GstSonarmuxClass

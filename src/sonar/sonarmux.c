@@ -13,7 +13,6 @@
 
 #include "sonarmux.h"
 #include "navi.h"
-#include "sonarparse.h"
 #include "nmeaparse.h"
 
 #include <stdio.h>
@@ -56,71 +55,115 @@ GST_STATIC_PAD_TEMPLATE ("src",
 static void gst_sonarmux_free_buf(gpointer data)
 {
   GstBuffer *buf = (GstBuffer*) data;
-  g_print("freeing %p", buf);
+  g_print("freeing %p\n", buf);
   gst_buffer_unref(buf);
+}
+
+static void gst_sonarmux_update_tel_interval(gpointer data, gpointer user_data)
+{
+  GstBuffer *telbuf = (GstBuffer*) data;
+  GstSonarmux *sonarmux = (GstSonarmux*)user_data;
+
+
+  GstMapInfo mapinfo;
+  if (!gst_buffer_map (telbuf, &mapinfo, GST_MAP_READ))
+  {
+    GST_WARNING_OBJECT(sonarmux, "couldn't map telemetry buffer at %p", telbuf);
+  }
+  else if (mapinfo.size != sizeof(GstSonarTelemetry))
+  {
+    GST_WARNING_OBJECT(sonarmux, "telemetry buffer at %p had wrong size %llu != %llu", telbuf, mapinfo.size, sizeof(GstSonarTelemetry));
+    gst_buffer_unmap(telbuf, &mapinfo);
+  }
+  else
+  {
+    GstSonarTelemetry *tel = (GstSonarTelemetry*)mapinfo.data;
+
+    GST_TRACE_OBJECT(sonarmux, "%llu:\tgot telemetry buf %p: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence=%02x",
+      telbuf->pts, telbuf, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
+
+    if (telbuf->pts > sonarmux->sonarbuf->pts)
+    {
+      if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_ROLL | GST_SONAR_TELEMETRY_PRESENCE_PITCH | GST_SONAR_TELEMETRY_PRESENCE_YAW))
+        sonarmux->posttel.attitude_time = telbuf->pts;
+
+      if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_LATITUDE | GST_SONAR_TELEMETRY_PRESENCE_LONGITUDE))
+        sonarmux->posttel.position_time = telbuf->pts;
+
+      if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_DEPTH))
+        sonarmux->posttel.depth_time = telbuf->pts;
+
+      if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE))
+        sonarmux->posttel.altitude_time = telbuf->pts;
+
+      for (int i=0; i<GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS; ++i)
+        if (tel->presence & (1<<i))
+          ((float*)&sonarmux->posttel.tel)[i] = ((float*)&tel)[i];
+
+      sonarmux->posttel.tel.presence |= tel->presence;
+
+      //gst_sonar_telemetry_timed_set_from_tel(&sonarmux->posttel, tel);
+      gst_buffer_unmap(telbuf, &mapinfo);
+    }
+    else
+    {
+
+
+      gst_buffer_unmap(telbuf, &mapinfo);
+      gst_buffer_unref(telbuf);
+      g_queue_remove(&sonarmux->telbufs, data);
+    }
+  }
 }
 
 static GstFlowReturn
 gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
 {
   GstSonarmux *sonarmux = GST_SONARMUX (aggregator);
+
   GST_TRACE_OBJECT(sonarmux, "aggregate");
 
-  GstBuffer *sonarbuf = gst_aggregator_pad_peek_buffer((GstAggregatorPad*)sonarmux->sonarsink);
+  if (!sonarmux->sonarbuf)
+  {
+    sonarmux->sonarbuf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->sonarsink);
+    GST_LOG_OBJECT(sonarmux, "%llu:\tgot sonar buf %p", sonarmux->sonarbuf->pts, sonarmux->sonarbuf);
+  }
 
   //gst_aggregator_pad_drop_buffer((GstAggregatorPad*)sonarmux->telsink);
   GstBuffer *telbuf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->telsink);
-  GstMapInfo mapinfo;
   if (telbuf)
   {
-    if (!gst_buffer_map (telbuf, &mapinfo, GST_MAP_READ))
+    g_queue_push_head(&sonarmux->telbufs, telbuf);
+    GST_LOG_OBJECT(sonarmux, "Queue length after add: %u", g_queue_get_length(&sonarmux->telbufs));
+
+    sonarmux->pretel = (GstSonarTelemetryTimed){0};
+    sonarmux->posttel = (GstSonarTelemetryTimed){0};
+
+    if (telbuf->pts > sonarmux->sonarbuf->pts)
+      g_queue_foreach(&sonarmux->telbufs, (GFunc)gst_sonarmux_update_tel_interval, sonarmux);
+
+    if (!(sonarmux->posttel.tel.presence ^ ((1 << GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS) - 1)))
     {
-      GST_WARNING_OBJECT(sonarmux, "couldn't map telemetry buffer at %p", telbuf);
-    }
-    else if (mapinfo.size != sizeof(GstSonarTelemetry))
-    {
-      GST_ERROR_OBJECT(sonarmux, "telemetry buffer at %p had wrong size %llu != %llu", telbuf, mapinfo.size, sizeof(GstSonarTelemetry));
-      gst_buffer_unmap(telbuf, &mapinfo);
-    }
-    else
-    {
-      GstSonarTelemetry *tel = (GstSonarTelemetry*)mapinfo.data;
+      // all telemetry has been received
+
+      const GstSonarTelemetry* tel = &sonarmux->posttel.tel;
       GST_LOG_OBJECT(sonarmux, "%llu:\tgot telemetry buf %p: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f",
         telbuf->pts, telbuf, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude);
 
-      tel->rotation_vector = linalg_calculate_rotation_vector(tel->roll, tel->pitch, tel->yaw);
-      GST_LOG_OBJECT(sonarmux, "rotation vector: %f, %f, %f", tel->rotation_vector.x, tel->rotation_vector.y, tel->rotation_vector.z);
+      //tel->rotation_vector = linalg_calculate_rotation_vector(tel->roll, tel->pitch, tel->yaw);
+      //GST_LOG_OBJECT(sonarmux, "rotation vector: %f, %f, %f", tel->rotation_vector.x, tel->rotation_vector.y, tel->rotation_vector.z);
+      
 
-      if (sonarbuf)
-      {
-        if (telbuf->pts < sonarbuf->pts)
-        {
-          g_queue_push_head(&sonarmux->telbufs, telbuf);
-          GST_LOG_OBJECT(sonarmux, "Queue length after add: %u", g_queue_get_length(&sonarmux->telbufs));
-        }
-        else
-        {
-          GST_LOG_OBJECT(sonarmux, "DONEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEee");
-          gst_buffer_unref(telbuf);
-          g_queue_foreach(&sonarmux->telbufs, (GFunc)gst_sonarmux_free_buf, NULL);
-          g_queue_clear(&sonarmux->telbufs);
-        }
-      }
+      g_queue_foreach(&sonarmux->telbufs, (GFunc)gst_sonarmux_free_buf, NULL);
+      g_queue_clear(&sonarmux->telbufs);
+
+      GstBuffer* buf = sonarmux->sonarbuf;
+      sonarmux->sonarbuf = NULL;
+      return gst_aggregator_finish_buffer(aggregator, buf);
     }
   }
-  if (sonarbuf)
-  {
-    //GstSonarMeta *meta = GST_SONAR_META_GET(sonarbuf);
-    GST_LOG_OBJECT(sonarmux, "%llu:\tgot sonar buf %p", sonarbuf->pts, sonarbuf);
-    static int i=0;
-    if (++i % 10 == 0)
-      return gst_aggregator_finish_buffer(aggregator, gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->sonarsink));
-    else
-      return GST_AGGREGATOR_FLOW_NEED_DATA;
-  }
-  else
-    //return GST_FLOW_OK;
-    return GST_AGGREGATOR_FLOW_NEED_DATA;
+
+  return GST_AGGREGATOR_FLOW_NEED_DATA;
 }
 
 static GstAggregatorPad *

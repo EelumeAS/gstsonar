@@ -99,7 +99,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     *telemetry =
     (GstSonarTelemetry){
       .yaw = heading,
-      .has_yaw = TRUE,
+      .presence = GST_SONAR_TELEMETRY_PRESENCE_YAW,
     };
   else if ((sscanf(mapinfo.data,"$EIPOS,%u,%lf,%lu,%lf,%c,%lf,%c*",&len,&timeUTC,&timestamp,&latitude,&north,&longitude,&east) == 7)
       && (latitude != -1) && (longitude != -1))
@@ -107,8 +107,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     (GstSonarTelemetry){
       .latitude = latitude * (north == 'N' ? 1 : -1),
       .longitude = longitude * (east == 'E' ? 1 : -1),
-      .has_latitude = TRUE,
-      .has_longitude = TRUE,
+      .presence = GST_SONAR_TELEMETRY_PRESENCE_LATITUDE | GST_SONAR_TELEMETRY_PRESENCE_LONGITUDE,
     };
   else if ((sscanf(mapinfo.data,"$EIORI,%u,%lf,%lu,%lf,%lf*",&len,&timeUTC,&timestamp,&roll,&pitch) == 5)
       && (roll != -1) && (pitch != -1))
@@ -116,8 +115,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     (GstSonarTelemetry){
       .roll = roll,
       .pitch = pitch,
-      .has_roll = TRUE,
-      .has_pitch = TRUE,
+      .presence = GST_SONAR_TELEMETRY_PRESENCE_ROLL | GST_SONAR_TELEMETRY_PRESENCE_PITCH,
     };
   else if ((sscanf(mapinfo.data,"$EIDEP,%u,%lf,%lu,%lf,m,%lf,m*",&len,&timeUTC,&timestamp,&depth,&altitude) == 5)
       && (depth != -1) && (altitude != -1))
@@ -125,8 +123,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     (GstSonarTelemetry){
       .depth = depth,
       .altitude = altitude,
-      .has_depth = TRUE,
-      .has_altitude = TRUE,
+      .presence = GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE | GST_SONAR_TELEMETRY_PRESENCE_DEPTH,
     };
   else
   {

@@ -14,19 +14,21 @@ G_BEGIN_DECLS
 // telemetry
 typedef struct
 {
-  linalg_rotation_vector_t rotation_vector; // filled in by muxer
-
   float roll, pitch, yaw;
   float latitude, longitude;
   float depth;
   float altitude;
 
-  gboolean has_roll, has_pitch, has_yaw;
-  gboolean has_latitude, has_longitude;
-  gboolean has_depth;
-  gboolean has_altitude;
-
+  guint8 presence;
 } GstSonarTelemetry;
+#define GST_SONAR_TELEMETRY_PRESENCE_ROLL       (1<<0)
+#define GST_SONAR_TELEMETRY_PRESENCE_PITCH      (1<<1)
+#define GST_SONAR_TELEMETRY_PRESENCE_YAW        (1<<2)
+#define GST_SONAR_TELEMETRY_PRESENCE_LATITUDE   (1<<3)
+#define GST_SONAR_TELEMETRY_PRESENCE_LONGITUDE  (1<<4)
+#define GST_SONAR_TELEMETRY_PRESENCE_DEPTH      (1<<5)
+#define GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE   (1<<6)
+#define GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS   (7)
 
 
 // sonar meta
