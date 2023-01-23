@@ -2,6 +2,7 @@
 #define __GST_SONARMUX_H__
 
 #include <gst/gst.h>
+#include <glib/gqueue.h>
 
 #include <gst/base/gstaggregator.h>
 
@@ -54,6 +55,8 @@ struct _GstSonarmux
 
   GstPad *sonarsink;
   GstPad *telsink;
+
+  GQueue telbufs;
 };
 
 struct _GstSonarmuxClass
