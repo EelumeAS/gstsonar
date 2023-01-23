@@ -7,19 +7,25 @@
 
 #include "navi.h"
 #include "nmeaparse.h"
+#include "linalg.h"
 
 G_BEGIN_DECLS
 
 // telemetry
 typedef struct
 {
-  float pitch;
-  float roll;
-  float yaw;
-  float latitude;
-  float longitude;
+  linalg_rotation_vector_t rotation_vector; // filled in by muxer
+
+  float roll, pitch, yaw;
+  float latitude, longitude;
   float depth;
   float altitude;
+
+  gboolean has_roll, has_pitch, has_yaw;
+  gboolean has_latitude, has_longitude;
+  gboolean has_depth;
+  gboolean has_altitude;
+
 } GstSonarTelemetry;
 
 
