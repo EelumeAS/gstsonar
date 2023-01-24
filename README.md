@@ -1,6 +1,9 @@
 # gstsonar
 
 GStreamer elements for processing sonar data from [Norbit WBMS FLS](https://norbit.com/subsea/products/).
+Easily extentible to other sonars.
+
+![sonar image](sonarsink-image.png)
 
 ## Prerequisites
 
