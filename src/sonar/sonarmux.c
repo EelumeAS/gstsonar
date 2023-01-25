@@ -118,7 +118,7 @@ static void gst_sonarmux_update_pretel_posttel(gpointer data, gpointer user_data
       gst_buffer_unmap(telbuf, &mapinfo);
       gst_buffer_unref(telbuf);
       g_queue_remove(&sonarmux->telbufs, data);
-      GST_LOG_OBJECT(sonarmux, "Queue length after remove: %u", g_queue_get_length(&sonarmux->telbufs));
+      GST_TRACE_OBJECT(sonarmux, "Queue length after remove: %u", g_queue_get_length(&sonarmux->telbufs));
     }
     else
     {
@@ -137,15 +137,18 @@ gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
   if (!sonarmux->sonarbuf)
   {
     sonarmux->sonarbuf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->sonarsink);
-    GST_LOG_OBJECT(sonarmux, "%llu:\tgot sonar buf %p", sonarmux->sonarbuf->pts, sonarmux->sonarbuf);
+    if (!sonarmux->sonarbuf)
+      return GST_FLOW_EOS;
   }
 
   //gst_aggregator_pad_drop_buffer((GstAggregatorPad*)sonarmux->telsink);
   GstBuffer *telbuf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->telsink);
-  if (telbuf)
+  if (!telbuf)
+    return GST_FLOW_EOS;
+  else
   {
     g_queue_push_head(&sonarmux->telbufs, telbuf);
-    GST_LOG_OBJECT(sonarmux, "Queue length after add: %u", g_queue_get_length(&sonarmux->telbufs));
+    GST_TRACE_OBJECT(sonarmux, "Queue length after add: %u", g_queue_get_length(&sonarmux->telbufs));
 
     sonarmux->pretel = (GstSonarTelemetryTimed){0};
     sonarmux->posttel = (GstSonarTelemetryTimed){0};
