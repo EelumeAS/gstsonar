@@ -12,12 +12,13 @@
 G_BEGIN_DECLS
 
 // telemetry
+typedef float GstSonarTelemetryField;
 typedef struct
 {
-  float roll, pitch, yaw;
-  float latitude, longitude;
-  float depth;
-  float altitude;
+  GstSonarTelemetryField roll, pitch, yaw;
+  GstSonarTelemetryField latitude, longitude;
+  GstSonarTelemetryField depth;
+  GstSonarTelemetryField altitude;
 
   guint8 presence;
 } GstSonarTelemetry;

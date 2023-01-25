@@ -59,7 +59,30 @@ static void gst_sonarmux_free_buf(gpointer data)
   gst_buffer_unref(buf);
 }
 
-static void gst_sonarmux_update_tel_interval(gpointer data, gpointer user_data)
+
+// update timed_tel from tel
+static void gst_sonar_telemetry_timed_set(GstSonarTelemetryTimed* timed_tel, const GstSonarTelemetry* tel, guint64 tel_time)
+{
+  if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_ROLL | GST_SONAR_TELEMETRY_PRESENCE_PITCH | GST_SONAR_TELEMETRY_PRESENCE_YAW))
+    timed_tel->attitude_time = tel_time;
+
+  if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_LATITUDE | GST_SONAR_TELEMETRY_PRESENCE_LONGITUDE))
+    timed_tel->position_time = tel_time;
+
+  if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_DEPTH))
+    timed_tel->depth_time = tel_time;
+
+  if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE))
+    timed_tel->altitude_time = tel_time;
+
+  for (int i=0; i<GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS; ++i)
+    if (tel->presence & (1<<i))
+      ((GstSonarTelemetryField*)&timed_tel->tel)[i] = ((const GstSonarTelemetryField*)tel)[i];
+
+  timed_tel->tel.presence |= tel->presence;
+}
+
+static void gst_sonarmux_update_pretel_posttel(gpointer data, gpointer user_data)
 {
   GstBuffer *telbuf = (GstBuffer*) data;
   GstSonarmux *sonarmux = (GstSonarmux*)user_data;
@@ -84,34 +107,22 @@ static void gst_sonarmux_update_tel_interval(gpointer data, gpointer user_data)
 
     if (telbuf->pts > sonarmux->sonarbuf->pts)
     {
-      if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_ROLL | GST_SONAR_TELEMETRY_PRESENCE_PITCH | GST_SONAR_TELEMETRY_PRESENCE_YAW))
-        sonarmux->posttel.attitude_time = telbuf->pts;
-
-      if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_LATITUDE | GST_SONAR_TELEMETRY_PRESENCE_LONGITUDE))
-        sonarmux->posttel.position_time = telbuf->pts;
-
-      if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_DEPTH))
-        sonarmux->posttel.depth_time = telbuf->pts;
-
-      if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE))
-        sonarmux->posttel.altitude_time = telbuf->pts;
-
-      for (int i=0; i<GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS; ++i)
-        if (tel->presence & (1<<i))
-          ((float*)&sonarmux->posttel.tel)[i] = ((float*)&tel)[i];
-
-      sonarmux->posttel.tel.presence |= tel->presence;
+      gst_sonar_telemetry_timed_set(&sonarmux->posttel, tel, telbuf->pts);
 
       //gst_sonar_telemetry_timed_set_from_tel(&sonarmux->posttel, tel);
       gst_buffer_unmap(telbuf, &mapinfo);
     }
-    else
+    else if (tel->presence & sonarmux->pretel.tel.presence)
     {
-
-
+      // remove outdated buffers
       gst_buffer_unmap(telbuf, &mapinfo);
       gst_buffer_unref(telbuf);
       g_queue_remove(&sonarmux->telbufs, data);
+      GST_LOG_OBJECT(sonarmux, "Queue length after remove: %u", g_queue_get_length(&sonarmux->telbufs));
+    }
+    else
+    {
+      gst_sonar_telemetry_timed_set(&sonarmux->pretel, tel, telbuf->pts);
     }
   }
 }
@@ -140,22 +151,26 @@ gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
     sonarmux->posttel = (GstSonarTelemetryTimed){0};
 
     if (telbuf->pts > sonarmux->sonarbuf->pts)
-      g_queue_foreach(&sonarmux->telbufs, (GFunc)gst_sonarmux_update_tel_interval, sonarmux);
+      g_queue_foreach(&sonarmux->telbufs, (GFunc)gst_sonarmux_update_pretel_posttel, sonarmux);
 
     if (!(sonarmux->posttel.tel.presence ^ ((1 << GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS) - 1)))
     {
       // all telemetry has been received
 
       const GstSonarTelemetry* tel = &sonarmux->posttel.tel;
-      GST_LOG_OBJECT(sonarmux, "%llu:\tgot telemetry buf %p: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f",
-        telbuf->pts, telbuf, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude);
+      GST_LOG_OBJECT(sonarmux, "%llu:\tposttel: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x",
+        telbuf->pts, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
+
+      tel = &sonarmux->pretel.tel;
+      GST_LOG_OBJECT(sonarmux, "%llu:\tpretel: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x",
+        telbuf->pts, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
 
       //tel->rotation_vector = linalg_calculate_rotation_vector(tel->roll, tel->pitch, tel->yaw);
       //GST_LOG_OBJECT(sonarmux, "rotation vector: %f, %f, %f", tel->rotation_vector.x, tel->rotation_vector.y, tel->rotation_vector.z);
       
 
-      g_queue_foreach(&sonarmux->telbufs, (GFunc)gst_sonarmux_free_buf, NULL);
-      g_queue_clear(&sonarmux->telbufs);
+      //g_queue_foreach(&sonarmux->telbufs, (GFunc)gst_sonarmux_free_buf, NULL);
+      //g_queue_clear(&sonarmux->telbufs);
 
       GstBuffer* buf = sonarmux->sonarbuf;
       sonarmux->sonarbuf = NULL;
