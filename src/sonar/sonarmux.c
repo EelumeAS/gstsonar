@@ -219,6 +219,14 @@ static gboolean gst_sonarmux_update_src_caps (GstAggregator * aggregator, GstCap
   GST_DEBUG_OBJECT(sonarmux, "sonarsink caps: %s\nother caps: %s", gst_caps_to_string(sonarcaps), gst_caps_to_string(caps));
 
   *ret = gst_caps_copy(sonarcaps);
+
+  //GstStructure *s = gst_caps_get_structure (*ret, 0);
+  //const GValue* has_telemetry = gst_structure_get_value(s, "parsed");
+  GValue has_telemetry = G_VALUE_INIT;
+  g_value_init(&has_telemetry, G_TYPE_BOOLEAN);
+  g_value_set_boolean(&has_telemetry, TRUE);
+  gst_caps_set_value(*ret, "has_telemetry", &has_telemetry);
+
   return TRUE;
 }
 
