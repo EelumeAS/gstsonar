@@ -55,7 +55,6 @@ GST_STATIC_PAD_TEMPLATE ("src",
 static void gst_sonarmux_free_buf(gpointer data)
 {
   GstBuffer *buf = (GstBuffer*) data;
-  g_print("freeing %p\n", buf);
   gst_buffer_unref(buf);
 }
 
@@ -63,6 +62,7 @@ static void gst_sonarmux_free_buf(gpointer data)
 // update timed_tel from tel
 static void gst_sonar_telemetry_timed_set(GstSonarTelemetryTimed* timed_tel, const GstSonarTelemetry* tel, guint64 tel_time)
 {
+  // update timestamp(s)
   if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_ROLL | GST_SONAR_TELEMETRY_PRESENCE_PITCH | GST_SONAR_TELEMETRY_PRESENCE_YAW))
     timed_tel->attitude_time = tel_time;
 
@@ -75,13 +75,16 @@ static void gst_sonar_telemetry_timed_set(GstSonarTelemetryTimed* timed_tel, con
   if (tel->presence & (GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE))
     timed_tel->altitude_time = tel_time;
 
+  // update telemetry
   for (int i=0; i<GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS; ++i)
     if (tel->presence & (1<<i))
       ((GstSonarTelemetryField*)&timed_tel->tel)[i] = ((const GstSonarTelemetryField*)tel)[i];
 
+  // update presence
   timed_tel->tel.presence |= tel->presence;
 }
 
+// update the borders of the telemetry interpolation interval
 static void gst_sonarmux_update_pretel_posttel(gpointer data, gpointer user_data)
 {
   GstBuffer *telbuf = (GstBuffer*) data;
@@ -127,6 +130,8 @@ static void gst_sonarmux_update_pretel_posttel(gpointer data, gpointer user_data
   }
 }
 
+// called when exactly one buffer is queued on both sinks
+// (see https://gstreamer.freedesktop.org/documentation/base/gstaggregator.html?gi-language=c)
 static GstFlowReturn
 gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
 {

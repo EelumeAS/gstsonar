@@ -7,30 +7,8 @@
 
 #include "navi.h"
 #include "nmeaparse.h"
-#include "linalg.h"
 
 G_BEGIN_DECLS
-
-// telemetry
-typedef float GstSonarTelemetryField;
-typedef struct
-{
-  GstSonarTelemetryField roll, pitch, yaw;
-  GstSonarTelemetryField latitude, longitude;
-  GstSonarTelemetryField depth;
-  GstSonarTelemetryField altitude;
-
-  guint8 presence;
-} GstSonarTelemetry;
-#define GST_SONAR_TELEMETRY_PRESENCE_ROLL       (1<<0)
-#define GST_SONAR_TELEMETRY_PRESENCE_PITCH      (1<<1)
-#define GST_SONAR_TELEMETRY_PRESENCE_YAW        (1<<2)
-#define GST_SONAR_TELEMETRY_PRESENCE_LATITUDE   (1<<3)
-#define GST_SONAR_TELEMETRY_PRESENCE_LONGITUDE  (1<<4)
-#define GST_SONAR_TELEMETRY_PRESENCE_DEPTH      (1<<5)
-#define GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE   (1<<6)
-#define GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS   (7)
-
 
 // sonar meta
 GType gst_sonar_meta_api_get_type (void);
@@ -44,7 +22,6 @@ typedef struct
   float sample_rate; // Sample rate in reported range sample index, in Hz
   int t0; // Sample index of first sample in each beam
   float gain; // Intensity value gain
-  GstSonarTelemetry tel; // interpolated telemetry data
 
 } GstSonarMetaData;
 

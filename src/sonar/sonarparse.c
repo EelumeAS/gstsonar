@@ -13,22 +13,13 @@
 
 #include "sonarparse.h"
 #include "sonarshared.h"
+#include "sonarmux.h"
 
 #include <stdio.h>
 
 #include <gst/base/gstbytereader.h>
 
 #define NORBIT_SONAR_PREFIX 0xefbeadde // deadbeef
-
-//#include <sys/time.h>
-//inline double ms()
-//{
-//  struct timeval tp;
-//  gettimeofday(&tp, NULL);
-//
-//  double ms = (double)(tp.tv_sec)*1000 + (double)(tp.tv_usec)/1000;
-//  return ms;
-//}
 
 GST_DEBUG_CATEGORY_STATIC(sonarparse_debug);
 #define GST_CAT_DEFAULT sonarparse_debug
@@ -68,11 +59,6 @@ static GstFlowReturn
 gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame, gint * skipsize)
 {
   GstSonarparse *sonarparse = GST_SONARPARSE (baseparse);
-
-  // profile time:
-  //static double start = 0;
-  //GST_WARNING_OBJECT(sonarparse, "%f", ms() - start);
-  //start = ms();
 
   GstMapInfo mapinfo;
   if (!gst_buffer_map (frame->buffer, &mapinfo, GST_MAP_READ))

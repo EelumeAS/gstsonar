@@ -10,6 +10,30 @@
 
 G_BEGIN_DECLS
 
+// telemetry
+#define GST_SONAR_TELEMETRY_PRESENCE_ROLL       (1<<0)
+#define GST_SONAR_TELEMETRY_PRESENCE_PITCH      (1<<1)
+#define GST_SONAR_TELEMETRY_PRESENCE_YAW        (1<<2)
+#define GST_SONAR_TELEMETRY_PRESENCE_LATITUDE   (1<<3)
+#define GST_SONAR_TELEMETRY_PRESENCE_LONGITUDE  (1<<4)
+#define GST_SONAR_TELEMETRY_PRESENCE_DEPTH      (1<<5)
+#define GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE   (1<<6)
+#define GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS   (7)
+
+typedef float GstSonarTelemetryField;
+
+// contains telemetry data. which data is specified in the presence field
+typedef struct
+{
+  GstSonarTelemetryField roll, pitch, yaw;
+  GstSonarTelemetryField latitude, longitude;
+  GstSonarTelemetryField depth;
+  GstSonarTelemetryField altitude;
+  guint8 presence; // composed of bitfields GST_SONAR_TELEMETRY_PRESENCE_ROLL etc.
+
+} GstSonarTelemetry;
+
+// telemetry, along with associated timestamps
 typedef struct
 {
   GstSonarTelemetry tel;

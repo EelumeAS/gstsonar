@@ -12,7 +12,7 @@
  */
 
 #include "nmeaparse.h"
-#include "sonarparse.h"
+#include "sonarmux.h"
 #include "sonarshared.h"
 
 #include <stdio.h>
