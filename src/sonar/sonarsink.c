@@ -154,16 +154,6 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
             return GST_FLOW_EOS;
           case SDLK_SPACE:
           {
-            //GstStructure *s = gst_structure_new ("GstMultiFileSink",
-            //  "filename", G_TYPE_STRING, filename,
-            //  "index", G_TYPE_INT, multifilesink->index,
-            //  "timestamp", G_TYPE_UINT64, timestamp,
-            //  "stream-time", G_TYPE_UINT64, stream_time,
-            //  "running-time", G_TYPE_UINT64, running_time,
-            //  "duration", G_TYPE_UINT64, duration,
-            //  "offset", G_TYPE_UINT64, offset,
-            //  "offset-end", G_TYPE_UINT64, offset_end, NULL);
-
             GstMessage *msg = gst_message_new_request_state(GST_OBJECT_CAST(sonarsink), sonarsink->playpause);
             gst_element_post_message(GST_ELEMENT_CAST(sonarsink), msg);
             sonarsink->playpause = sonarsink->playpause == GST_STATE_PAUSED ? GST_STATE_PLAYING : GST_STATE_PAUSED;
@@ -186,7 +176,6 @@ gst_sonarsink_set_caps (GstBaseSink * basesink, GstCaps * caps)
   GstSonarsink *sonarsink = GST_SONARSINK (basesink);
 
   GstStructure *s = gst_caps_get_structure (caps, 0);
-  const GValue *v_framerate, *v_n_beams, *v_resolution;
 
   GST_DEBUG_OBJECT(sonarsink, "caps structure: %s\n", gst_structure_to_string(s));
 

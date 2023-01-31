@@ -6,7 +6,6 @@
 #include <gst/base/gstbaseparse.h>
 
 #include "navi.h"
-#include "nmeaparse.h"
 
 G_BEGIN_DECLS
 

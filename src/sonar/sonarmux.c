@@ -18,6 +18,7 @@
 
 #define SONAR_CAPS "sonar/multibeam; sonar/bathymetry"
 #define TELEMETRY_CAPS "application/telemetry"
+#define SONAR_WITH_TELEMETRY_CAPS "sonar/multibeam, has_telemetry = (boolean) true ; sonar/bathymetry, has_telemetry = (boolean) true"
 
 GST_DEBUG_CATEGORY_STATIC(sonarmux_debug);
 #define GST_CAT_DEFAULT sonarmux_debug
@@ -48,7 +49,7 @@ static GstStaticPadTemplate gst_sonarmux_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS (SONAR_CAPS)
+    GST_STATIC_CAPS (SONAR_WITH_TELEMETRY_CAPS)
     );
 
 static void gst_sonarmux_free_buf(gpointer data)
