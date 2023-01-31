@@ -2,6 +2,7 @@
 #include "sonarconvert.h"
 #include "sonarsink.h"
 #include "sonarmux.h"
+#include "sonardetect.h"
 #include "nmeaparse.h"
 
 
@@ -12,6 +13,7 @@ plugin_init (GstPlugin * plugin)
   || !gst_element_register (plugin, "sonarconvert", GST_RANK_NONE, gst_sonarconvert_get_type())
   || !gst_element_register (plugin, "sonarsink", GST_RANK_NONE, gst_sonarsink_get_type())
   || !gst_element_register (plugin, "sonarmux", GST_RANK_NONE, gst_sonarmux_get_type())
+  || !gst_element_register (plugin, "sonardetect", GST_RANK_NONE, gst_sonardetect_get_type())
   || !gst_element_register (plugin, "nmeaparse", GST_RANK_NONE, gst_nmeaparse_get_type()))
     return FALSE;
   return TRUE;
