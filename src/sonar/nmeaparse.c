@@ -13,6 +13,7 @@
 
 #include "nmeaparse.h"
 #include "sonarparse.h"
+#include "sonarshared.h"
 
 #include <stdio.h>
 
@@ -132,34 +133,13 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   }
 
 
+    // set timestamp and caps
   timestamp *= (guint64)1e6; // ms to ns
   if (telemetry != NULL)
   {
     if (nmeaparse->initial_time == 0)
     {
-      // set initial time
-      g_mutex_lock(&gst_sonar_shared_data.m);
-      if (gst_sonar_shared_data.initial_time == 0)
-      {
-        GST_DEBUG_OBJECT(nmeaparse, "setting global initial time from %llu", timestamp);
-        nmeaparse->initial_time = gst_sonar_shared_data.initial_time = timestamp;
-      }
-      else if (gst_sonar_shared_data.initial_time * 10 > timestamp)
-      {
-        GST_WARNING_OBJECT(nmeaparse, "global initial time is too large: %llu * 10 > %llu, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
-        nmeaparse->initial_time = timestamp;
-      }
-      else if (gst_sonar_shared_data.initial_time < timestamp * 10)
-      {
-        GST_WARNING_OBJECT(nmeaparse, "global initial time is too small: %llu < %llu * 10, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
-        nmeaparse->initial_time = timestamp;
-      }
-      else
-      {
-        GST_DEBUG_OBJECT(nmeaparse, "using global initial time %llu", gst_sonar_shared_data.initial_time);
-        nmeaparse->initial_time = gst_sonar_shared_data.initial_time;
-      }
-      g_mutex_unlock(&gst_sonar_shared_data.m);
+      nmeaparse->initial_time = gst_sonarshared_set_initial_time(timestamp);
 
       // set constant caps
       GstCaps *caps = gst_caps_new_simple ("application/telemetry", NULL);
@@ -178,7 +158,6 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
 
     frame->out_buffer = gst_buffer_new_wrapped (telemetry, sizeof(*telemetry));
 
-    // set pts
     if (timestamp < nmeaparse->initial_time)
     {
       GST_WARNING_OBJECT(nmeaparse, "timestamp would be negative: %llu < %llu, reset to zero", timestamp, nmeaparse->initial_time);

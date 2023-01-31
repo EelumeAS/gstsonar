@@ -93,14 +93,6 @@ struct _GstSonarparseClass
 
 GType gst_sonarparse_get_type (void);
 
-typedef struct
-{
-  GMutex m;
-  guint64 initial_time;
-} GstSonarSharedData;
-
-extern GstSonarSharedData gst_sonar_shared_data; // FIXME: This is a global variable for syncronizing time, limiting the scalability of the sonar elements
-
 G_END_DECLS
 
 #endif /* __GST_SONARPARSE_H__ */

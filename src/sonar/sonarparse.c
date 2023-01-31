@@ -12,6 +12,7 @@
  */
 
 #include "sonarparse.h"
+#include "sonarshared.h"
 
 #include <stdio.h>
 
@@ -62,8 +63,6 @@ GST_STATIC_PAD_TEMPLATE ("sink",
   GST_PAD_ALWAYS,
   GST_STATIC_CAPS ("sonar/multibeam; sonar/bathymetry")
   );
-
-GstSonarSharedData gst_sonar_shared_data;
 
 static GstFlowReturn
 gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame, gint * skipsize)
@@ -212,35 +211,11 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
     gst_caps_unref (caps);
   }
 
-  // set timestamp
   guint64 timestamp = (guint64)(sub_header_time * 1e9);
   if (sonarparse->initial_time == 0)
-  {
-    g_mutex_lock(&gst_sonar_shared_data.m);
+    sonarparse->initial_time = gst_sonarshared_set_initial_time(timestamp);
 
-    if (gst_sonar_shared_data.initial_time == 0)
-    {
-      GST_DEBUG_OBJECT(sonarparse, "setting global initial time from %llu", timestamp);
-      sonarparse->initial_time = gst_sonar_shared_data.initial_time = timestamp;
-    }
-    else if (gst_sonar_shared_data.initial_time * 10 > timestamp)
-    {
-      GST_WARNING_OBJECT(sonarparse, "global initial time is too large: %llu * 10 > %llu, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
-      sonarparse->initial_time = timestamp;
-    }
-    else if (gst_sonar_shared_data.initial_time < timestamp * 10)
-    {
-      GST_WARNING_OBJECT(sonarparse, "global initial time is too small: %llu < %llu * 10, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
-      sonarparse->initial_time = timestamp;
-    }
-    else
-    {
-      GST_DEBUG_OBJECT(sonarparse, "using global initial time %llu", gst_sonar_shared_data.initial_time);
-      sonarparse->initial_time = gst_sonar_shared_data.initial_time;
-    }
-    g_mutex_unlock(&gst_sonar_shared_data.m);
-  }
-
+  // set timestamp
   if (timestamp < sonarparse->initial_time)
   {
     GST_WARNING_OBJECT(sonarparse, "timestamp would be negative: %llu < %llu, reset to zero", timestamp, gst_sonar_shared_data.initial_time);
@@ -331,7 +306,6 @@ static void
 gst_sonarparse_finalize (GObject * object)
 {
   GstSonarparse *sonarparse = GST_SONARPARSE (object);
-  g_mutex_clear(&gst_sonar_shared_data.m);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -396,9 +370,7 @@ static gboolean gst_sonar_meta_init(GstMeta *meta, G_GNUC_UNUSED gpointer params
 
 	sonarmeta->data = (GstSonarMetaData){0};
 
-  g_mutex_init(&gst_sonar_shared_data.m);
-  gst_sonar_shared_data.initial_time = 0;
-
+  gst_sonarshared_init();
 	return TRUE;
 }
 
