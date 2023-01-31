@@ -56,6 +56,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   GstByteReader reader;
   gst_byte_reader_init (&reader, mapinfo.data, mapinfo.size);
 
+  // find nmea message start
   *skipsize = gst_byte_reader_masked_scan_uint32 (&reader, 0xffffff00, '$' << 24 | 'E' << 16 | 'I' << 8, 0, mapinfo.size);
 
   if (*skipsize == -1)
@@ -65,18 +66,21 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     exit(GST_FLOW_OK);
   }
   else if (*skipsize != 0)
-    exit(GST_FLOW_OK);
+    exit(GST_FLOW_OK); // make sure we start on the beginning of the nmea message before proceeding
 
+  // find nmea message end
   guint32 nmea_size = gst_byte_reader_masked_scan_uint32 (&reader, 0xffff0000, '\r' << 24 | '\n' << 16, 0, mapinfo.size);
 
   if (nmea_size == -1)
   {
+    // when we can't find the end, we increase the minimum frame size
     gst_base_parse_set_min_frame_size (baseparse, mapinfo.size + 1);
     exit(GST_FLOW_OK);
   }
 
   GST_LOG_OBJECT(nmeaparse, "nmea entry of size %d: %.*s", nmea_size, nmea_size, mapinfo.data);
 
+  // allocate and parse telemetry
   GstSonarTelemetry* telemetry = g_malloc(sizeof(*telemetry));
   guint64 timestamp = 0;
   gdouble timeUTC;
@@ -128,8 +132,11 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     };
   else
   {
+    GST_WARNING_OBJECT (nmeaparse, "Couldn't parse %.*s\n", nmea_size, mapinfo.data);
+
+    *skipsize = mapinfo.size;
     g_free(telemetry);
-    telemetry = NULL;
+    exit(GST_FLOW_OK);
   }
 
 
