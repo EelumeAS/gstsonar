@@ -45,6 +45,20 @@ typedef struct
 
 } GstSonarTelemetryTimed;
 
+// telemetry meta
+GType gst_telemetry_meta_api_get_type (void);
+const GstMetaInfo * gst_telemetry_meta_get_info (void);
+#define GST_TELEMETRY_META_GET(buf) ((GstTelemetryMeta *)gst_buffer_get_meta(buf,gst_telemetry_meta_api_get_type()))
+#define GST_TELEMETRY_META_ADD(buf) ((GstTelemetryMeta *)gst_buffer_add_meta(buf,gst_telemetry_meta_get_info(),NULL))
+
+typedef struct
+{
+  GstMeta meta;
+  GstSonarTelemetry tel; // interpolated telemetry
+
+} GstTelemetryMeta;
+
+// we need to define custom pads for aggregator
 GType gst_sonarmux_pad_get_type (void);
 
 #define GST_TYPE_SONARMUX_PAD \

@@ -1,13 +1,12 @@
 /**
  * SECTION:element-gst_sonarmux
  *
- * Sonarmux is a TODO
- *
+ * Muxer for interpolating telemetry data over sonar data
  *
  * <refsect2>
  * <title>Example launch line</title>
  * |[
-  TODO
+  gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! sonarmux name=mux ! sonarsink zoom=2 gain=1 filesrc location=../samples/in.sbd ! nmeaparse ! mux.
  * </refsect2>
  */
 
@@ -175,13 +174,14 @@ gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
 
       //tel->rotation_vector = linalg_calculate_rotation_vector(tel->roll, tel->pitch, tel->yaw);
       //GST_LOG_OBJECT(sonarmux, "rotation vector: %f, %f, %f", tel->rotation_vector.x, tel->rotation_vector.y, tel->rotation_vector.z);
-      
 
-      //g_queue_foreach(&sonarmux->telbufs, (GFunc)gst_sonarmux_free_buf, NULL);
-      //g_queue_clear(&sonarmux->telbufs);
-
+      // prepare and release sonar buffer
       GstBuffer* buf = sonarmux->sonarbuf;
       sonarmux->sonarbuf = NULL;
+
+      GstTelemetryMeta *meta = GST_TELEMETRY_META_ADD(buf);
+      meta->tel = sonarmux->posttel.tel;
+
       return gst_aggregator_finish_buffer(aggregator, buf);
     }
   }
@@ -280,7 +280,7 @@ gst_sonarmux_class_init (GstSonarmuxClass * klass)
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonarmux",
       "Sink",
-      "TODO", // TODO
+      "Muxer for interpolating telemetry data over sonar data",
       "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
   gst_element_class_add_static_pad_template_with_gtype (gstelement_class, &gst_sonarmux_sonar_sink_template, GST_TYPE_SONARMUX_PAD);
@@ -294,6 +294,7 @@ gst_sonarmux_init (GstSonarmux * sonarmux)
   g_queue_init(&sonarmux->telbufs);
 }
 
+// custom pad
 static void
 gst_sonarmux_pad_class_init (GstSonarmuxPadClass * klass)
 {
@@ -307,3 +308,45 @@ gst_sonarmux_pad_init (GstSonarmuxPad * pad)
 }
 
 G_DEFINE_TYPE (GstSonarmuxPad, gst_sonarmux_pad, GST_TYPE_AGGREGATOR_PAD);
+
+
+// telemetry meta
+GType gst_telemetry_meta_api_get_type(void)
+{
+	static GType type;
+	static const gchar *tags[] = { GST_META_TAG_MEMORY_STR, NULL };
+
+	if (g_once_init_enter(&type))
+	{
+		GType _type = gst_meta_api_type_register("GstTelemetryMetaAPI", tags);
+		g_once_init_leave(&type, _type);
+	}
+	return type;
+}
+
+static gboolean gst_telemetry_meta_init(GstMeta *meta, G_GNUC_UNUSED gpointer params, G_GNUC_UNUSED GstBuffer *buffer)
+{
+	GstTelemetryMeta *telemetrymeta = (GstTelemetryMeta *)meta;
+
+	telemetrymeta->tel = (GstSonarTelemetry){0};
+
+	return TRUE;
+}
+
+const GstMetaInfo *gst_telemetry_meta_get_info(void)
+{
+	static const GstMetaInfo *meta_info = NULL;
+
+	if (g_once_init_enter(&meta_info))
+	{
+		const GstMetaInfo *meta = gst_meta_register(
+				gst_telemetry_meta_api_get_type(),
+				"GstTelemetryMeta",
+				sizeof(GstTelemetryMeta),
+				(GstMetaInitFunction)gst_telemetry_meta_init,
+				(GstMetaFreeFunction)NULL,
+				(GstMetaTransformFunction)NULL);
+		g_once_init_leave(&meta_info, meta);
+	}
+	return meta_info;
+}

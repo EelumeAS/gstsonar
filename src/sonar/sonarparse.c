@@ -293,6 +293,8 @@ gst_sonarparse_finalize (GObject * object)
 {
   GstSonarparse *sonarparse = GST_SONARPARSE (object);
 
+  gst_sonarshared_finalize();
+
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
@@ -334,6 +336,8 @@ gst_sonarparse_init (GstSonarparse * sonarparse)
   sonarparse->next_meta_data = (GstSonarMetaData){0};
 
   sonarparse->initial_time = 0;
+
+  gst_sonarshared_init();
 }
 
 // sonar meta
@@ -356,7 +360,6 @@ static gboolean gst_sonar_meta_init(GstMeta *meta, G_GNUC_UNUSED gpointer params
 
 	sonarmeta->data = (GstSonarMetaData){0};
 
-  gst_sonarshared_init();
 	return TRUE;
 }
 
