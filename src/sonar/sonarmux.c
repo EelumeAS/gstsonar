@@ -13,6 +13,7 @@
 #include "sonarmux.h"
 #include "navi.h"
 #include "nmeaparse.h"
+#include "linalg.h"
 
 #include <stdio.h>
 
@@ -84,6 +85,11 @@ static void gst_sonar_telemetry_timed_set(GstSonarTelemetryTimed* timed_tel, con
   timed_tel->tel.presence |= tel->presence;
 }
 
+gboolean gst_sonar_telemetry_has_full_presence(const GstSonarTelemetry* tel)
+{
+  return !(tel->presence ^ ((1 << GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS) - 1));
+}
+
 // update the borders of the telemetry interpolation interval
 static void gst_sonarmux_update_pretel_posttel(gpointer data, gpointer user_data)
 {
@@ -130,6 +136,18 @@ static void gst_sonarmux_update_pretel_posttel(gpointer data, gpointer user_data
   }
 }
 
+GstSonarTelemetry gst_sonar_telemetry_timed_interpolate(GstSonarTelemetryTimed *first, GstSonarTelemetryTimed *second)
+{
+  GstSonarTelemetry ret;
+
+  linalg_interpolate_euler_angles(
+    &ret.roll, &ret.pitch, &ret.yaw
+    , first->tel.roll, first->tel.pitch, first->tel.yaw
+    , second->tel.roll, second->tel.pitch, second->tel.yaw);
+
+  return ret;
+}
+
 // called when exactly one buffer is queued on both sinks
 // (see https://gstreamer.freedesktop.org/documentation/base/gstaggregator.html?gi-language=c)
 static GstFlowReturn
@@ -161,33 +179,38 @@ gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
     if (telbuf->pts > sonarmux->sonarbuf->pts)
       g_queue_foreach(&sonarmux->telbufs, (GFunc)gst_sonarmux_update_pretel_posttel, sonarmux);
 
-    if (!(sonarmux->posttel.tel.presence ^ ((1 << GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS) - 1)))
+    if (gst_sonar_telemetry_has_full_presence(&sonarmux->posttel.tel))
     {
-      // all telemetry has been received
+      if (gst_sonar_telemetry_has_full_presence(&sonarmux->pretel.tel))
+      {
+        const GstSonarTelemetry* tel = &sonarmux->posttel.tel;
+        GST_LOG_OBJECT(sonarmux, "%llu:\tposttel: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x",
+          telbuf->pts, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
 
-      const GstSonarTelemetry* tel = &sonarmux->posttel.tel;
-      GST_LOG_OBJECT(sonarmux, "%llu:\tposttel: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x",
-        telbuf->pts, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
+        tel = &sonarmux->pretel.tel;
+        GST_LOG_OBJECT(sonarmux, "%llu:\tpretel: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x",
+          telbuf->pts, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
 
-      tel = &sonarmux->pretel.tel;
-      GST_LOG_OBJECT(sonarmux, "%llu:\tpretel: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x",
-        telbuf->pts, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
+        // prepare and release sonar buffer
+        GstBuffer* buf = sonarmux->sonarbuf;
+        sonarmux->sonarbuf = NULL;
 
-      //tel->rotation_vector = linalg_calculate_rotation_vector(tel->roll, tel->pitch, tel->yaw);
-      //GST_LOG_OBJECT(sonarmux, "rotation vector: %f, %f, %f", tel->rotation_vector.x, tel->rotation_vector.y, tel->rotation_vector.z);
+        GstTelemetryMeta *meta = GST_TELEMETRY_META_ADD(buf);
+        meta->tel = gst_sonar_telemetry_timed_interpolate(&sonarmux->pretel, &sonarmux->posttel);
 
-      // prepare and release sonar buffer
-      GstBuffer* buf = sonarmux->sonarbuf;
-      sonarmux->sonarbuf = NULL;
-
-      GstTelemetryMeta *meta = GST_TELEMETRY_META_ADD(buf);
-      meta->tel = sonarmux->posttel.tel;
-
-      return gst_aggregator_finish_buffer(aggregator, buf);
+        return gst_aggregator_finish_buffer(aggregator, buf);
+      }
+      else
+      {
+        GST_WARNING_OBJECT(sonarmux, "not enough initial telemetry to interpolate");
+        gst_buffer_unref(sonarmux->sonarbuf);
+        sonarmux->sonarbuf = NULL;
+        return GST_AGGREGATOR_FLOW_NEED_DATA;
+      }
     }
+    else
+      return GST_AGGREGATOR_FLOW_NEED_DATA;
   }
-
-  return GST_AGGREGATOR_FLOW_NEED_DATA;
 }
 
 static GstAggregatorPad *

@@ -3,14 +3,10 @@
 extern "C" {
 #endif
 
-typedef struct
-{
-  float x;
-  float y;
-  float z;
-} linalg_rotation_vector_t;
-
-linalg_rotation_vector_t linalg_calculate_rotation_vector(float roll, float pitch, float yaw);
+void linalg_interpolate_euler_angles(
+  float* out_roll, float* out_pitch, float* out_yaw
+  , float first_roll, float first_pitch, float first_yaw
+  , float second_roll, float second_pitch, float second_yaw);
 
 
 #ifdef __cplusplus

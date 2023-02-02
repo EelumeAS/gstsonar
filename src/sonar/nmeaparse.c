@@ -16,6 +16,7 @@
 #include "sonarshared.h"
 
 #include <stdio.h>
+#include <math.h>
 
 #include <gst/base/gstbytereader.h>
 
@@ -103,7 +104,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
       && (heading != -1))
     *telemetry =
     (GstSonarTelemetry){
-      .yaw = heading,
+      .yaw = heading * M_PI / 180.,
       .presence = GST_SONAR_TELEMETRY_PRESENCE_YAW,
     };
   else if ((sscanf(mapinfo.data,"$EIPOS,%u,%lf,%lu,%lf,%c,%lf,%c*",&len,&timeUTC,&timestamp,&latitude,&north,&longitude,&east) == 7)
@@ -118,8 +119,8 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
       && (roll != -1) && (pitch != -1))
     *telemetry =
     (GstSonarTelemetry){
-      .roll = roll,
-      .pitch = pitch,
+      .roll = roll * M_PI / 180.,
+      .pitch = pitch * M_PI / 180.,
       .presence = GST_SONAR_TELEMETRY_PRESENCE_ROLL | GST_SONAR_TELEMETRY_PRESENCE_PITCH,
     };
   else if ((sscanf(mapinfo.data,"$EIDEP,%u,%lf,%lu,%lf,m,%lf,m*",&len,&timeUTC,&timestamp,&depth,&altitude) == 5)

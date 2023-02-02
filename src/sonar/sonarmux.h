@@ -25,10 +25,10 @@ typedef float GstSonarTelemetryField;
 // contains telemetry data. which data is specified in the presence field
 typedef struct
 {
-  GstSonarTelemetryField roll, pitch, yaw;
-  GstSonarTelemetryField latitude, longitude;
-  GstSonarTelemetryField depth;
-  GstSonarTelemetryField altitude;
+  GstSonarTelemetryField roll, pitch, yaw; // in radians
+  GstSonarTelemetryField latitude, longitude; // in degrees
+  GstSonarTelemetryField depth; // in meters
+  GstSonarTelemetryField altitude; // in meters
   guint8 presence; // composed of bitfields GST_SONAR_TELEMETRY_PRESENCE_ROLL etc.
 
 } GstSonarTelemetry;
