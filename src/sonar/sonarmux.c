@@ -6,7 +6,7 @@
  * <refsect2>
  * <title>Example launch line</title>
  * |[
-  gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! sonarmux name=mux ! sonarsink zoom=2 gain=1 filesrc location=../samples/in.sbd ! nmeaparse ! mux.
+  SBD=../samples/in.sbd && GST_PLUGIN_PATH=. GST_DEBUG=2,sonarmux:6 gst-launch-1.0 filesrc location=$SBD ! sonarparse ! sonarmux name=mux ! sonardetect ! sonarsink filesrc location=$SBD ! nmeaparse ! mux.
  * </refsect2>
  */
 
@@ -87,7 +87,7 @@ static void gst_sonar_telemetry_timed_set(GstSonarTelemetryTimed* timed_tel, con
 
 gboolean gst_sonar_telemetry_has_full_presence(const GstSonarTelemetry* tel)
 {
-  return !(tel->presence ^ ((1 << GST_SONAR_TELEMETRY_PRESENCE_N_FIELDS) - 1));
+  return (tel->presence ^ GST_SONAR_TELEMETRY_PRESENCE_FULL) == 0;
 }
 
 // update the borders of the telemetry interpolation interval
@@ -118,7 +118,6 @@ static void gst_sonarmux_update_pretel_posttel(gpointer data, gpointer user_data
     {
       gst_sonar_telemetry_timed_set(&sonarmux->posttel, tel, telbuf->pts);
 
-      //gst_sonar_telemetry_timed_set_from_tel(&sonarmux->posttel, tel);
       gst_buffer_unmap(telbuf, &mapinfo);
     }
     else if (tel->presence & sonarmux->pretel.tel.presence)
@@ -136,14 +135,37 @@ static void gst_sonarmux_update_pretel_posttel(gpointer data, gpointer user_data
   }
 }
 
-GstSonarTelemetry gst_sonar_telemetry_timed_interpolate(GstSonarTelemetryTimed *first, GstSonarTelemetryTimed *second)
+GstSonarTelemetry gst_sonar_telemetry_timed_interpolate(GstSonarTelemetryTimed *first, GstSonarTelemetryTimed *second, guint64 interpolation_time)
 {
-  GstSonarTelemetry ret;
+  const linalg_euler_angles_t first_angles =
+  {
+    .roll   = first->tel.roll,
+    .pitch  = first->tel.pitch,
+    .yaw    = first->tel.yaw,
+    .time = first->attitude_time,
+  };
 
-  linalg_interpolate_euler_angles(
-    &ret.roll, &ret.pitch, &ret.yaw
-    , first->tel.roll, first->tel.pitch, first->tel.yaw
-    , second->tel.roll, second->tel.pitch, second->tel.yaw);
+  const linalg_euler_angles_t second_angles =
+  {
+    .roll   = second->tel.roll,
+    .pitch  = second->tel.pitch,
+    .yaw    = second->tel.yaw,
+    .time = second->attitude_time,
+  };
+
+  linalg_euler_angles_t euler_angles;
+  linalg_interpolate_euler_angles(&euler_angles, &first_angles, &second_angles, interpolation_time);
+
+  GstSonarTelemetry ret;
+  ret.roll = euler_angles.roll;
+  ret.pitch = euler_angles.pitch;
+  ret.yaw = euler_angles.yaw;
+
+  ret.latitude = linalg_interpolate_scalar(first->tel.latitude, first->position_time, second->tel.latitude, second->position_time, interpolation_time);
+  ret.longitude = linalg_interpolate_scalar(first->tel.longitude, first->position_time, second->tel.longitude, second->position_time, interpolation_time);
+  ret.depth = linalg_interpolate_scalar(first->tel.depth, first->position_time, second->tel.depth, second->depth_time, interpolation_time);
+  ret.altitude = linalg_interpolate_scalar(first->tel.altitude, first->position_time, second->tel.altitude, second->altitude_time, interpolation_time);
+  ret.presence = GST_SONAR_TELEMETRY_PRESENCE_FULL;
 
   return ret;
 }
@@ -161,13 +183,19 @@ gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
   {
     sonarmux->sonarbuf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->sonarsink);
     if (!sonarmux->sonarbuf)
+    {
+      GST_WARNING_OBJECT(sonarmux, "no more sonar buffers");
       return GST_FLOW_EOS;
+    }
   }
 
   //gst_aggregator_pad_drop_buffer((GstAggregatorPad*)sonarmux->telsink);
   GstBuffer *telbuf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sonarmux->telsink);
   if (!telbuf)
+  {
+    GST_WARNING_OBJECT(sonarmux, "no more telemetry buffers");
     return GST_FLOW_EOS;
+  }
   else
   {
     g_queue_push_head(&sonarmux->telbufs, telbuf);
@@ -192,13 +220,13 @@ gst_sonarmux_aggregate (GstAggregator * aggregator, gboolean timeout)
           telbuf->pts, tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
 
         // prepare and release sonar buffer
-        GstBuffer* buf = sonarmux->sonarbuf;
+        GstBuffer* sonarbuf = sonarmux->sonarbuf;
         sonarmux->sonarbuf = NULL;
 
-        GstTelemetryMeta *meta = GST_TELEMETRY_META_ADD(buf);
-        meta->tel = gst_sonar_telemetry_timed_interpolate(&sonarmux->pretel, &sonarmux->posttel);
+        GstTelemetryMeta *meta = GST_TELEMETRY_META_ADD(sonarbuf);
+        meta->tel = gst_sonar_telemetry_timed_interpolate(&sonarmux->pretel, &sonarmux->posttel, sonarbuf->pts);
 
-        return gst_aggregator_finish_buffer(aggregator, buf);
+        return gst_aggregator_finish_buffer(aggregator, sonarbuf);
       }
       else
       {
