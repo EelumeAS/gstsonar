@@ -12,9 +12,11 @@
  */
 
 #include "nmeaparse.h"
-#include "sonarparse.h"
+#include "sonarmux.h"
+#include "sonarshared.h"
 
 #include <stdio.h>
+#include <math.h>
 
 #include <gst/base/gstbytereader.h>
 
@@ -55,6 +57,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   GstByteReader reader;
   gst_byte_reader_init (&reader, mapinfo.data, mapinfo.size);
 
+  // find nmea message start
   *skipsize = gst_byte_reader_masked_scan_uint32 (&reader, 0xffffff00, '$' << 24 | 'E' << 16 | 'I' << 8, 0, mapinfo.size);
 
   if (*skipsize == -1)
@@ -64,18 +67,21 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     exit(GST_FLOW_OK);
   }
   else if (*skipsize != 0)
-    exit(GST_FLOW_OK);
+    exit(GST_FLOW_OK); // make sure we start on the beginning of the nmea message before proceeding
 
+  // find nmea message end
   guint32 nmea_size = gst_byte_reader_masked_scan_uint32 (&reader, 0xffff0000, '\r' << 24 | '\n' << 16, 0, mapinfo.size);
 
   if (nmea_size == -1)
   {
+    // when we can't find the end, we increase the minimum frame size
     gst_base_parse_set_min_frame_size (baseparse, mapinfo.size + 1);
     exit(GST_FLOW_OK);
   }
 
   GST_LOG_OBJECT(nmeaparse, "nmea entry of size %d: %.*s", nmea_size, nmea_size, mapinfo.data);
 
+  // allocate and parse telemetry
   GstSonarTelemetry* telemetry = g_malloc(sizeof(*telemetry));
   guint64 timestamp = 0;
   gdouble timeUTC;
@@ -98,7 +104,8 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
       && (heading != -1))
     *telemetry =
     (GstSonarTelemetry){
-      .yaw = heading,
+      .yaw = heading * M_PI / 180.,
+      .presence = GST_SONAR_TELEMETRY_PRESENCE_YAW,
     };
   else if ((sscanf(mapinfo.data,"$EIPOS,%u,%lf,%lu,%lf,%c,%lf,%c*",&len,&timeUTC,&timestamp,&latitude,&north,&longitude,&east) == 7)
       && (latitude != -1) && (longitude != -1))
@@ -106,13 +113,15 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     (GstSonarTelemetry){
       .latitude = latitude * (north == 'N' ? 1 : -1),
       .longitude = longitude * (east == 'E' ? 1 : -1),
+      .presence = GST_SONAR_TELEMETRY_PRESENCE_LATITUDE | GST_SONAR_TELEMETRY_PRESENCE_LONGITUDE,
     };
   else if ((sscanf(mapinfo.data,"$EIORI,%u,%lf,%lu,%lf,%lf*",&len,&timeUTC,&timestamp,&roll,&pitch) == 5)
       && (roll != -1) && (pitch != -1))
     *telemetry =
     (GstSonarTelemetry){
-      .pitch = pitch,
-      .roll = roll,
+      .roll = roll * M_PI / 180.,
+      .pitch = pitch * M_PI / 180.,
+      .presence = GST_SONAR_TELEMETRY_PRESENCE_ROLL | GST_SONAR_TELEMETRY_PRESENCE_PITCH,
     };
   else if ((sscanf(mapinfo.data,"$EIDEP,%u,%lf,%lu,%lf,m,%lf,m*",&len,&timeUTC,&timestamp,&depth,&altitude) == 5)
       && (depth != -1) && (altitude != -1))
@@ -120,42 +129,25 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     (GstSonarTelemetry){
       .depth = depth,
       .altitude = altitude,
+      .presence = GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE | GST_SONAR_TELEMETRY_PRESENCE_DEPTH,
     };
   else
   {
+    GST_WARNING_OBJECT (nmeaparse, "Couldn't parse %.*s\n", nmea_size, mapinfo.data);
+
+    *skipsize = mapinfo.size;
     g_free(telemetry);
-    telemetry = NULL;
+    exit(GST_FLOW_OK);
   }
 
 
+    // set timestamp and caps
   timestamp *= (guint64)1e6; // ms to ns
   if (telemetry != NULL)
   {
     if (nmeaparse->initial_time == 0)
     {
-      // set initial time
-      g_mutex_lock(&gst_sonar_shared_data.m);
-      if (gst_sonar_shared_data.initial_time == 0)
-      {
-        GST_DEBUG_OBJECT(nmeaparse, "setting global initial time from %llu", timestamp);
-        nmeaparse->initial_time = gst_sonar_shared_data.initial_time = timestamp;
-      }
-      else if (gst_sonar_shared_data.initial_time * 10 > timestamp)
-      {
-        GST_WARNING_OBJECT(nmeaparse, "global initial time is too large: %llu * 10 > %llu, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
-        nmeaparse->initial_time = timestamp;
-      }
-      else if (gst_sonar_shared_data.initial_time < timestamp * 10)
-      {
-        GST_WARNING_OBJECT(nmeaparse, "global initial time is too small: %llu < %llu * 10, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
-        nmeaparse->initial_time = timestamp;
-      }
-      else
-      {
-        GST_DEBUG_OBJECT(nmeaparse, "using global initial time %llu", gst_sonar_shared_data.initial_time);
-        nmeaparse->initial_time = gst_sonar_shared_data.initial_time;
-      }
-      g_mutex_unlock(&gst_sonar_shared_data.m);
+      nmeaparse->initial_time = gst_sonarshared_set_initial_time(timestamp);
 
       // set constant caps
       GstCaps *caps = gst_caps_new_simple ("application/telemetry", NULL);
@@ -174,7 +166,6 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
 
     frame->out_buffer = gst_buffer_new_wrapped (telemetry, sizeof(*telemetry));
 
-    // set pts
     if (timestamp < nmeaparse->initial_time)
     {
       GST_WARNING_OBJECT(nmeaparse, "timestamp would be negative: %llu < %llu, reset to zero", timestamp, nmeaparse->initial_time);

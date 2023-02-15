@@ -99,35 +99,29 @@ gst_sonarconvert_transform_caps (GstBaseTransform * basetransform, GstPadDirecti
   else if (direction == GST_PAD_SINK)
   {
     GstStructure *s = gst_caps_get_structure (caps, 0);
-    const GValue *v_framerate, *v_n_beams, *v_resolution;
 
-    GST_DEBUG_OBJECT(sonarconvert, "sink structure: %s\n", gst_structure_to_string(s));
+    GST_DEBUG_OBJECT(sonarconvert, "sink structure: %s", gst_structure_to_string(s));
+    guint32 framerate_n, framerate_d, n_beams, resolution;
 
-    if (((v_framerate = gst_structure_get_value(s, "framerate")) == NULL)
-      || (!GST_VALUE_HOLDS_FRACTION (v_framerate))
-      || ((v_n_beams = gst_structure_get_value(s, "n_beams")) == NULL)
-      || (!G_VALUE_HOLDS_INT (v_n_beams))
-      || ((v_resolution = gst_structure_get_value(s, "resolution")) == NULL)
-      || (!G_VALUE_HOLDS_INT (v_resolution)))
+    if (gst_structure_get_fraction(s, "framerate", &framerate_n, &framerate_d)
+      && gst_structure_get_int(s, "n_beams", &n_beams)
+      && gst_structure_get_int(s, "resolution", &resolution))
+    {
+      GST_OBJECT_LOCK (sonarconvert);
+      sonarconvert->n_beams = n_beams;
+      sonarconvert->resolution = resolution;
+      GST_OBJECT_UNLOCK (sonarconvert);
+
+      GST_DEBUG_OBJECT(sonarconvert, "got caps details framerate: %d/%d, n_beams: %d, resolution: %d", framerate_n, framerate_d, n_beams, resolution);
+
+      return gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "GRAY8", "width", G_TYPE_INT, n_beams, "height", G_TYPE_INT, resolution, "framerate", GST_TYPE_FRACTION, framerate_n, framerate_d, NULL);
+    }
+    else
     {
       GST_DEBUG_OBJECT(sonarconvert, "no details in caps\n");
 
       return gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "GRAY8", NULL);
     }
-
-    guint32 framerate_n = gst_value_get_fraction_numerator (v_framerate);
-    guint32 framerate_d = gst_value_get_fraction_denominator (v_framerate);
-    guint32 n_beams = g_value_get_int (v_n_beams);
-    guint32 resolution = g_value_get_int (v_resolution);
-
-    GST_OBJECT_LOCK (sonarconvert);
-    sonarconvert->n_beams = n_beams;
-    sonarconvert->resolution = resolution;
-    GST_OBJECT_UNLOCK (sonarconvert);
-
-    GST_DEBUG_OBJECT(sonarconvert, "got caps details framerate: %d/%d, n_beams: %d, resolution: %d", framerate_n, framerate_d, n_beams, resolution);
-
-    return gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "GRAY8", "width", G_TYPE_INT, n_beams, "height", G_TYPE_INT, resolution, "framerate", GST_TYPE_FRACTION, framerate_n, framerate_d, NULL);
   }
 }
 

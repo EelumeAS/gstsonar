@@ -69,7 +69,7 @@ gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! sonarconvert ! 
 
 Parse both sonar and telemetry data:
 ```
-gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! mux.sonar filesrc location=../samples/in.sbd ! nmeaparse ! mux.tel sonarmux name=mux ! sonarsink
+SBD=../samples/in.sbd && GST_PLUGIN_PATH=. GST_DEBUG=2,sonardetect:6 gst-launch-1.0 filesrc location=$SBD ! sonarparse ! sonarmux name=mux ! sonardetect ! sonarsink filesrc location=$SBD ! nmeaparse ! mux.
 # (tee apparently doesn't go well with filesrc: gst-launch-1.0 filesrc location=../samples/in.sbd ! tee name=t ! queue ! sonarparse ! sonarsink t. ! queue ! nmeaparse ! fakesink)
 ```
 
