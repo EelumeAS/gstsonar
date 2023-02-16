@@ -97,9 +97,18 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
           }
 
           float* color = sonarsink->colors + vertex_index;
-          color[0] = I;
-          color[1] = I;
-          color[2] = I;
+          if (beam_intensity % 3 == 0)
+          {
+            color[0] = I;
+            color[1] = 0;
+            color[2] = 0;
+          }
+          else
+          {
+            color[0] = I;
+            color[1] = I;
+            color[2] = I;
+          }
         }
       }
       break;

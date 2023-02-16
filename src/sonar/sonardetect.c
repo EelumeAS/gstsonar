@@ -12,14 +12,8 @@
  */
 
 #include "sonardetect.h"
-#include "sonarshared.h"
-#include "sonarmux.h"
-
-#include <stdio.h>
 
 #include <gst/base/gstbytereader.h>
-
-#define NORBIT_SONAR_PREFIX 0xefbeadde // deadbeef
 
 GST_DEBUG_CATEGORY_STATIC(sonardetect_debug);
 #define GST_CAT_DEFAULT sonardetect_debug
@@ -64,13 +58,33 @@ gst_sonardetect_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf)
 
   GST_OBJECT_LOCK (sonardetect);
 
-  const GstSonarMetaData *sonar_data = &GST_SONAR_META_GET(buf)->data;
+  const GstSonarMetaData *meta_data = &GST_SONAR_META_GET(buf)->data;
   const GstSonarTelemetry *tel = &GST_TELEMETRY_META_GET(buf)->tel;
 
   GST_DEBUG_OBJECT(sonardetect, "%lu:\tn_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
     ", pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x"
-    , buf->pts, sonardetect->n_beams, sonardetect->resolution, sonar_data->sound_speed, sonar_data->sample_rate, sonar_data->t0, sonar_data->gain
+    , buf->pts, sonardetect->n_beams, sonardetect->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0, meta_data->gain
     , tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
+
+  GstMapInfo mapinfo;
+  if (!gst_buffer_map (buf, &mapinfo, GST_MAP_READ | GST_MAP_WRITE))
+  {
+    GST_WARNING_OBJECT(sonardetect, "couldn't map sonar buffer at %p", buf);
+  }
+  else
+  {
+    switch(sonardetect->wbms_type)
+    {
+      case WBMS_FLS:
+        sonardetect_detect(mapinfo.data, sonardetect->n_beams, sonardetect->resolution, meta_data, tel);
+        break;
+      default:
+      case WBMS_BATH:
+        break;
+    }
+
+    gst_buffer_unmap(buf, &mapinfo);
+  }
 
   GST_OBJECT_UNLOCK (sonardetect);
 
@@ -150,8 +164,6 @@ static void
 gst_sonardetect_finalize (GObject * object)
 {
   GstSonardetect *sonardetect = GST_SONARDETECT (object);
-
-  gst_sonarshared_finalize();
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }

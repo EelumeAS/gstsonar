@@ -4,7 +4,13 @@
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
 
+#include "sonarparse.h"
+#include "sonarmux.h"
 #include "navi.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 G_BEGIN_DECLS
 
@@ -40,5 +46,14 @@ struct _GstSonardetectClass
 GType gst_sonardetect_get_type (void);
 
 G_END_DECLS
+
+
+// sonardetect.cpp functions
+
+void sonardetect_detect(uint8_t* sonar_data, uint32_t n_beams, uint32_t resolution, const GstSonarMetaData *meta_data, const GstSonarTelemetry* tel);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* __GST_SONARDETECT_H__ */
