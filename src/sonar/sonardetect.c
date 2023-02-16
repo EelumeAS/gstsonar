@@ -77,7 +77,7 @@ gst_sonardetect_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf)
     {
       case WBMS_FLS:
         if (sonardetect->has_telemetry)
-          sonardetect_detect(mapinfo.data, sonardetect->n_beams, sonardetect->resolution, meta_data, tel);
+          sonardetect_detect(buf->pts, mapinfo.data, sonardetect->n_beams, sonardetect->resolution, meta_data, tel);
         break;
       default:
       case WBMS_BATH:
