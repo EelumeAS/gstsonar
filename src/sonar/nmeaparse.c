@@ -133,7 +133,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
     };
   else
   {
-    GST_WARNING_OBJECT (nmeaparse, "Couldn't parse %.*s\n", nmea_size, mapinfo.data);
+    GST_WARNING_OBJECT (nmeaparse, "invalid nmea: %.*s\n", nmea_size, mapinfo.data);
 
     *skipsize = mapinfo.size;
     g_free(telemetry);

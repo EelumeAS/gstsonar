@@ -33,7 +33,6 @@ void linalg_interpolate_euler_angles(linalg_euler_angles_t* out, const linalg_eu
   assert((interpolation_time >= first->time) && (interpolation_time <= second->time));
 
   auto first_rotation = linalg_calculate_rotation_vector(first);
-  printf("rotation vector: %f, %f, %f", first_rotation.x(), first_rotation.y(), first_rotation.z());
   auto second_rotation = linalg_calculate_rotation_vector(second);
 
   Eigen::Vector3f out_rotation;
