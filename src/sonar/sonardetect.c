@@ -30,15 +30,13 @@ GST_STATIC_PAD_TEMPLATE ("src",
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) [ 0, MAX ], "
         "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ,"
-        "has_telemetry = (boolean) true ;"
+        "parsed = (boolean) true ;"
 
-        "sonar/bathymetry, "
+        "sonar/bathymetry,"
         "n_beams = (int) [ 0, MAX ],"
-        "resolution = (int) 1, "
+        "resolution = (int) 1,"
         "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ,"
-        "has_telemetry = (boolean) true ;"
+        "parsed = (boolean) true ;"
         )
     );
 
@@ -54,17 +52,19 @@ gst_sonardetect_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf)
 {
   GstSonardetect *sonardetect = GST_SONARDETECT (basetransform);
 
-  GST_DEBUG_OBJECT(sonardetect, "dts: %llu, pts: %llu", buf->dts, buf->pts);
-
   GST_OBJECT_LOCK (sonardetect);
 
   const GstSonarMetaData *meta_data = &GST_SONAR_META_GET(buf)->data;
   const GstSonarTelemetry *tel = &GST_TELEMETRY_META_GET(buf)->tel;
 
-  GST_DEBUG_OBJECT(sonardetect, "%lu:\tn_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
-    ", pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x"
-    , buf->pts, sonardetect->n_beams, sonardetect->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0, meta_data->gain
-    , tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
+  if (sonardetect->has_telemetry)
+    GST_DEBUG_OBJECT(sonardetect, "%lu:\tn_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
+      ", pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x"
+      , buf->pts, sonardetect->n_beams, sonardetect->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0, meta_data->gain
+      , tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
+  else
+    GST_DEBUG_OBJECT(sonardetect, "%lu:\tn_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
+      , buf->pts, sonardetect->n_beams, sonardetect->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0, meta_data->gain);
 
   GstMapInfo mapinfo;
   if (!gst_buffer_map (buf, &mapinfo, GST_MAP_READ | GST_MAP_WRITE))
@@ -76,7 +76,8 @@ gst_sonardetect_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf)
     switch(sonardetect->wbms_type)
     {
       case WBMS_FLS:
-        sonardetect_detect(mapinfo.data, sonardetect->n_beams, sonardetect->resolution, meta_data, tel);
+        if (sonardetect->has_telemetry)
+          sonardetect_detect(mapinfo.data, sonardetect->n_beams, sonardetect->resolution, meta_data, tel);
         break;
       default:
       case WBMS_BATH:
@@ -101,17 +102,20 @@ gst_sonardetect_set_caps (GstBaseTransform * basetransform, GstCaps * incaps, Gs
   GST_DEBUG_OBJECT(sonardetect, "caps structure: %s\n", gst_structure_to_string(s));
 
   gint n_beams, resolution;
+  gboolean has_telemetry;
   const gchar *caps_name;
 
   if ((caps_name = gst_structure_get_name(s))
     && gst_structure_get_int(s, "n_beams", &n_beams)
-    && gst_structure_get_int(s, "resolution", &resolution))
+    && gst_structure_get_int(s, "resolution", &resolution)
+    && gst_structure_get_boolean(s, "has_telemetry", &has_telemetry))
   {
     GST_OBJECT_LOCK (sonardetect);
 
-    GST_DEBUG_OBJECT(sonardetect, "got caps details caps_name: %s, n_beams: %d, resolution: %d", caps_name, n_beams, resolution);
+    GST_DEBUG_OBJECT(sonardetect, "got caps details caps_name: %s, n_beams: %d, resolution: %d, has_telemetry: %d", caps_name, n_beams, resolution, has_telemetry);
     sonardetect->n_beams = (guint32)n_beams;
     sonardetect->resolution = (guint32)resolution;
+    sonardetect->has_telemetry = has_telemetry;
 
     if (strcmp(caps_name, "sonar/multibeam") == 0)
       sonardetect->wbms_type = WBMS_FLS;
@@ -199,4 +203,5 @@ gst_sonardetect_init (GstSonardetect * sonardetect)
 {
   sonardetect->n_beams = 0;
   sonardetect->resolution = 0;
+  sonardetect->has_telemetry = FALSE;
 }

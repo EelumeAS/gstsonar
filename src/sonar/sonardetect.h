@@ -36,6 +36,7 @@ struct _GstSonardetect
   wbms_type_t wbms_type;
   guint32 n_beams;
   guint32 resolution;
+  gboolean has_telemetry;
 };
 
 struct _GstSonardetectClass
