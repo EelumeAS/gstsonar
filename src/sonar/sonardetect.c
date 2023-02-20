@@ -1,7 +1,7 @@
 /**
  * SECTION:element-gst_sonardetect
  *
- * Sonardetect is a TODO
+ * Sonardetect detects the first point of contact along each beam and records the index on the first intensity
  *
  *
  * <refsect2>
@@ -30,13 +30,15 @@ GST_STATIC_PAD_TEMPLATE ("src",
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) [ 0, MAX ], "
         "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ;"
+        "parsed = (boolean) true ,"
+        "detected = (boolean) true ;"
 
         "sonar/bathymetry,"
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) 1,"
         "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ;"
+        "parsed = (boolean) true ,"
+        "detected = (boolean) true ;"
         )
     );
 
@@ -183,12 +185,12 @@ gst_sonardetect_class_init (GstSonardetectClass * klass)
   gobject_class->set_property = gst_sonardetect_set_property;
   gobject_class->get_property = gst_sonardetect_get_property;
 
-  GST_DEBUG_CATEGORY_INIT(sonardetect_debug, "sonardetect", 0, "TODO");
+  GST_DEBUG_CATEGORY_INIT(sonardetect_debug, "sonardetect", 0, "sonardetect");
 
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonardetect",
       "Transform",
-      "TODO", // TODO
+      "Sonardetect detects the first point of contact along each beam and records the index on the first intensity",
       "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonardetect_sink_template);

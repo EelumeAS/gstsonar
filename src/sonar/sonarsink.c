@@ -1,7 +1,7 @@
 /**
  * SECTION:element-gst_sonarsink
  *
- * Sonarsink is a TODO
+ * Sonarsink visualizes sonar data
  *
  *
  * <refsect2>
@@ -306,7 +306,7 @@ gst_sonarsink_class_init (GstSonarsinkClass * klass)
   basesink_class->render = GST_DEBUG_FUNCPTR (gst_sonarsink_render);
   basesink_class->set_caps = GST_DEBUG_FUNCPTR (gst_sonarsink_set_caps);
 
-  GST_DEBUG_CATEGORY_INIT(sonarsink_debug, "sonarsink", 0, "TODO");
+  GST_DEBUG_CATEGORY_INIT(sonarsink_debug, "sonarsink", 0, "sonarsink");
 
   g_object_class_install_property (G_OBJECT_CLASS (klass), PROP_ZOOM,
       g_param_spec_double ("zoom", "zoom",
@@ -320,7 +320,7 @@ gst_sonarsink_class_init (GstSonarsinkClass * klass)
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonarsink",
       "Sink",
-      "TODO", // TODO
+      "visualizes sonar data",
       "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonarsink_sink_template);

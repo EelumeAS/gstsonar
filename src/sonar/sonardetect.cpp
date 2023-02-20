@@ -9,21 +9,12 @@ void sonardetect_detect(uint64_t timestamp, uint8_t* sonar_data, uint32_t n_beam
 
   for (int beam_index=0; beam_index < n_beams; ++beam_index)
   {
-    int16_t largest_signal = 0;
-
-    int avg = 0;
+    int limit = 0;
 
     for (int range_index=0; range_index < resolution; ++range_index)
     {
       int16_t* beam_intensity = beam_intensities + range_index * n_beams + beam_index;
-      avg += *beam_intensity;
-
-
-      //if (*beam_intensity > largest_signal)
-      //  largest_signal = *beam_intensity;
-
-      //float beam_angle = beam_angles[beam_index];
-      //float range = ((meta_data->t0 + range_index) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
+      limit += *beam_intensity;
 
       // draw cross
       //if ((beam_index == (int)(n_beams / 2))
@@ -32,16 +23,16 @@ void sonardetect_detect(uint64_t timestamp, uint8_t* sonar_data, uint32_t n_beam
 
       
     }
-    avg /= resolution;
+    limit /= resolution;
 
-    avg *= 1.7;
+    limit *= 1.7;
 
     bool found_largest_intensity = false;
     for (int range_index=1; range_index < resolution; ++range_index)
     {
       int16_t* beam_intensity = beam_intensities + range_index * n_beams + beam_index;
 
-      if ((*beam_intensity > avg) && (beam_intensities[(range_index - 1) * n_beams + beam_index] < avg))
+      if ((*beam_intensity > limit) && (beam_intensities[(range_index - 1) * n_beams + beam_index] < limit))
         found_largest_intensity = true;
         
 

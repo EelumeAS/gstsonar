@@ -73,6 +73,11 @@ SBD=../samples/in.sbd && GST_PLUGIN_PATH=. GST_DEBUG=2,sonardetect:6 gst-launch-
 # (tee apparently doesn't go well with filesrc: gst-launch-1.0 filesrc location=../samples/in.sbd ! tee name=t ! queue ! sonarparse ! sonarsink t. ! queue ! nmeaparse ! fakesink)
 ```
 
+Parse sonar and telemetry data from tcp:
+```
+GST_PLUGIN_PATH=. gst-launch-1.0 tcpclientsrc host=192.168.3.58 port=2211 ! sonarparse ! sonarmux name=mux ! sonardetect ! sonarsink tcpclientsrc host=192.168.3.100 port=11000 ! nmeaparse ! mux.
+```
+
 ## Settings on norbit sonar
 
 Connect to control interface:

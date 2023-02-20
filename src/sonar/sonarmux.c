@@ -336,7 +336,7 @@ gst_sonarmux_class_init (GstSonarmuxClass * klass)
   aggregator_class->create_new_pad = GST_DEBUG_FUNCPTR (gst_sonarmux_create_new_pad);
   aggregator_class->update_src_caps = GST_DEBUG_FUNCPTR (gst_sonarmux_update_src_caps);
 
-  GST_DEBUG_CATEGORY_INIT(sonarmux_debug, "sonarmux", 0, "TODO");
+  GST_DEBUG_CATEGORY_INIT(sonarmux_debug, "sonarmux", 0, "sonarmux");
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonarmux",
       "Sink",

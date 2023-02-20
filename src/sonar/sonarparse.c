@@ -1,7 +1,7 @@
 /**
  * SECTION:element-gst_sonarparse
  *
- * Sonarparse is a TODO
+ * Sonarparse parses Norbit WBMS sonar data
  *
  *
  * <refsect2>
@@ -313,12 +313,12 @@ gst_sonarparse_class_init (GstSonarparseClass * klass)
   gobject_class->set_property = gst_sonarparse_set_property;
   gobject_class->get_property = gst_sonarparse_get_property;
 
-  GST_DEBUG_CATEGORY_INIT(sonarparse_debug, "sonarparse", 0, "TODO");
+  GST_DEBUG_CATEGORY_INIT(sonarparse_debug, "sonarparse", 0, "sonarparse");
 
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonarparse",
-      "Transform",
-      "TODO", // TODO
+      "Parse",
+      "Sonarparse parses Norbit WBMS sonar data",
       "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonarparse_sink_template);
