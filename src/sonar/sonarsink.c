@@ -67,6 +67,8 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
       const int16_t* beam_intensities = (const int16_t*)(mapinfo.data + sizeof(packet_header_t) + sizeof(fls_data_header_t));
       const float* beam_angles = (const float*)(beam_intensities + sonarsink->n_beams * sonarsink->resolution);
 
+      const float max_range = ((meta_data->t0 + sonarsink->resolution) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
+
       const float total_gain = sonarsink->gain / meta_data->gain;
 
       for (int range_index=0; range_index < sonarsink->resolution; ++range_index)
@@ -75,12 +77,12 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
         {
           int16_t beam_intensity = beam_intensities[range_index * sonarsink->n_beams + beam_index];
           float beam_angle = beam_angles[beam_index];
-          //float range = ((meta_data->t0 + range_index) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
+          float range = ((meta_data->t0 + range_index) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
 
           int vertex_index = 3 * (beam_index * sonarsink->resolution + range_index);
           float* vertex = sonarsink->vertices + vertex_index;
 
-          float range_norm = (float)range_index / (float)sonarsink->resolution;
+          float range_norm = range / max_range;
 
           vertex[0] = -sin(beam_angle) * range_norm * sonarsink->zoom;
           vertex[1] = -1 + cos(beam_angle) * range_norm * sonarsink->zoom;
