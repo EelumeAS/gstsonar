@@ -27,17 +27,9 @@ GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS (
         "sonar/multibeam, "
-        "n_beams = (int) [ 0, MAX ],"
-        "resolution = (int) [ 0, MAX ], "
-        "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ,"
         "detected = (boolean) true ;"
 
         "sonar/bathymetry,"
-        "n_beams = (int) [ 0, MAX ],"
-        "resolution = (int) 1,"
-        "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ,"
         "detected = (boolean) true ;"
         )
     );
@@ -94,20 +86,21 @@ gst_sonardetect_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf)
   return GST_FLOW_OK;
 }
 
-static gboolean
-gst_sonardetect_set_caps (GstBaseTransform * basetransform, GstCaps * incaps, GstCaps * outcaps)
+static GstCaps*
+gst_sonardetect_transform_caps (GstBaseTransform * basetransform, GstPadDirection direction, GstCaps * caps, GstCaps * filter)
 {
   GstSonardetect *sonardetect = GST_SONARDETECT (basetransform);
 
-  GstStructure *s = gst_caps_get_structure (incaps, 0);
+  GstStructure *s = gst_caps_get_structure (caps, 0);
 
-  GST_DEBUG_OBJECT(sonardetect, "caps structure: %s\n", gst_structure_to_string(s));
+  GST_DEBUG_OBJECT(sonardetect, "direction: %d, caps structure: %s", direction, gst_structure_to_string(s));
 
   gint n_beams, resolution;
   gboolean has_telemetry;
   const gchar *caps_name;
 
-  if ((caps_name = gst_structure_get_name(s))
+  if ((direction == GST_PAD_SINK)
+    && (caps_name = gst_structure_get_name(s))
     && gst_structure_get_int(s, "n_beams", &n_beams)
     && gst_structure_get_int(s, "resolution", &resolution)
     && gst_structure_get_boolean(s, "has_telemetry", &has_telemetry))
@@ -128,14 +121,29 @@ gst_sonardetect_set_caps (GstBaseTransform * basetransform, GstCaps * incaps, Gs
 
     GST_OBJECT_UNLOCK (sonardetect);
 
-    return TRUE;
-  }
-  else
-  {
-    GST_DEBUG_OBJECT(sonardetect, "no details in caps\n");
+    gboolean old_detected;
+    if (gst_structure_get_boolean(s, "detected", &old_detected)
+      && old_detected)
+    {
+      GST_ERROR_OBJECT(sonardetect, "can't run detection on sonardata with existing detection");
+      return NULL;
+    }
+    else
+    {
+      // add true detected field
+      GstCaps *ret = gst_caps_copy(caps);
+      GValue detected = G_VALUE_INIT;
+      g_value_init(&detected, G_TYPE_BOOLEAN);
+      g_value_set_boolean(&detected, TRUE);
+      gst_caps_set_value(ret, "detected", &detected);
 
-    return FALSE;
+      return ret;
+    }
   }
+  else if (filter)
+    return gst_caps_intersect_full (filter, caps, GST_CAPS_INTERSECT_FIRST);
+  else
+    return gst_caps_ref (caps);
 }
 
 static void
@@ -197,7 +205,7 @@ gst_sonardetect_class_init (GstSonardetectClass * klass)
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonardetect_src_template);
 
   basetransform_class->transform_ip = GST_DEBUG_FUNCPTR (gst_sonardetect_transform_ip);
-  basetransform_class->set_caps = GST_DEBUG_FUNCPTR (gst_sonardetect_set_caps);
+  basetransform_class->transform_caps = GST_DEBUG_FUNCPTR (gst_sonardetect_transform_caps);
 }
 
 static void

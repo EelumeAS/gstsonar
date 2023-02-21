@@ -37,7 +37,7 @@ static GstStaticPadTemplate gst_sonarsink_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("sonar/multibeam; sonar/bathymetry")
+    GST_STATIC_CAPS ("sonar/multibeam, detected=(boolean){false,true}; sonar/bathymetry, detected=(boolean){false,true}")
     );
 
 static GstFlowReturn
@@ -89,7 +89,7 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
           float I = total_gain * beam_intensity;
           if (I > 1)
           {
-            GST_DEBUG_OBJECT(sonarsink, "intensity too large: %d > %f", beam_intensity, total_gain);
+            GST_TRACE_OBJECT(sonarsink, "intensity too large: %d > %f", beam_intensity, total_gain);
             I = 1;
             //gst_buffer_unmap (buf, &mapinfo);
             //GST_OBJECT_UNLOCK (sonarsink);
@@ -97,14 +97,35 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
           }
 
           float* color = sonarsink->colors + vertex_index;
-          if (beam_intensity % 3 == 0)
+          if (sonarsink->detected)
           {
-            color[0] = I;
-            color[1] = 0;
-            color[2] = 0;
+            // the index of the detected first point of contact is stored in the first range_index for each beam
+            int16_t first_contact = beam_intensities[beam_index];
+            if (range_index >= first_contact)
+            {
+              // red
+              color[0] = I;
+              color[1] = 0;
+              color[2] = 0;
+            }
+            else if (range_index == 0)
+            {
+              // black
+              color[0] = 0;
+              color[1] = 0;
+              color[2] = 0;
+            }
+            else
+            {
+              // yellow
+              color[0] = I;
+              color[1] = I;
+              color[2] = 0;
+            }
           }
           else
           {
+            // white
             color[0] = I;
             color[1] = I;
             color[2] = I;
@@ -221,6 +242,10 @@ gst_sonarsink_set_caps (GstBaseSink * basesink, GstCaps * caps)
     else
       g_assert_not_reached();
 
+    gboolean detected;
+    if (gst_structure_get_boolean(s, "detected", &detected))
+      sonarsink->detected = detected;
+
     GST_OBJECT_UNLOCK (sonarsink);
 
     // initialize visualization once
@@ -331,6 +356,7 @@ gst_sonarsink_init (GstSonarsink * sonarsink)
 {
   sonarsink->n_beams = 0;
   sonarsink->resolution = 0;
+  sonarsink->detected = FALSE;
   sonarsink->vertices = NULL;
   sonarsink->colors = NULL;
   sonarsink->init_wp = 1;

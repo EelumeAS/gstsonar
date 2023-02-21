@@ -37,16 +37,14 @@ GST_STATIC_PAD_TEMPLATE ("src",
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) [ 0, MAX ], "
         "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ,"
-        "has_telemetry = (boolean) false ;"
+        "parsed = (boolean) true ;"
 
         "sonar/bathymetry, "
         //"format = (string) { norbit }, "
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) 1, "
         "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ,"
-        "has_telemetry = (boolean) false ;"
+        "parsed = (boolean) true ;"
         )
     );
 
@@ -184,7 +182,6 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
       , "resolution", G_TYPE_INT, sonarparse->resolution
       , "framerate", GST_TYPE_FRACTION, sonarparse->framerate, 1
       , "parsed", G_TYPE_BOOLEAN, TRUE
-      , "has_telemetry", G_TYPE_BOOLEAN, FALSE
       , NULL);
 
     GST_DEBUG_OBJECT (sonarparse, "setting downstream caps on %s:%s to %" GST_PTR_FORMAT,
