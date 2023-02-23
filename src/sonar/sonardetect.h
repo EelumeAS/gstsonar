@@ -51,6 +51,7 @@ G_END_DECLS
 
 // sonardetect.cpp functions
 
+// stores the index of the first detected point in the first range index for each beam
 void sonardetect_detect(uint64_t timestamp, uint8_t* sonar_data, int n_beams, int resolution, const GstSonarMetaData *meta_data, const GstSonarTelemetry* tel);
 
 #ifdef __cplusplus
