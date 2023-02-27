@@ -58,7 +58,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   gst_byte_reader_init (&reader, mapinfo.data, mapinfo.size);
 
   // find nmea message start
-  *skipsize = gst_byte_reader_masked_scan_uint32 (&reader, 0xffffff00, '$' << 24 | 'E' << 16 | 'I' << 8, 0, mapinfo.size);
+  *skipsize = gst_byte_reader_masked_scan_uint32 (&reader, 0xff000000, '$' << 24, 0, mapinfo.size);
 
   if (*skipsize == -1)
   {
@@ -68,6 +68,22 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   }
   else if (*skipsize != 0)
     exit(GST_FLOW_OK); // make sure we start on the beginning of the nmea message before proceeding
+
+  // verify nmea message
+  g_assert(mapinfo.size > 6); // we set initial min frame size larger than this in gst_nmeaparse_start
+  if (mapinfo.data[6] != ',') // check for comma
+  {
+    ++*skipsize;
+    exit(GST_FLOW_OK);
+  }
+  for (const char* c = mapinfo.data + 1; c != mapinfo.data + 6; ++c) // check for the 5 letters between dollar sign and comma
+  {
+    if ((*c < 'A') || (*c > 'Z'))
+    {
+      ++*skipsize;
+      exit(GST_FLOW_OK);
+    }
+  }
 
   // find nmea message end
   guint32 nmea_size = gst_byte_reader_masked_scan_uint32 (&reader, 0xffff0000, '\r' << 24 | '\n' << 16, 0, mapinfo.size);
@@ -135,7 +151,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   {
     GST_WARNING_OBJECT (nmeaparse, "invalid nmea: %.*s\n", nmea_size, mapinfo.data);
 
-    *skipsize = mapinfo.size;
+    *skipsize = 1;
     g_free(telemetry);
     exit(GST_FLOW_OK);
   }
@@ -190,6 +206,8 @@ gst_nmeaparse_start (GstBaseParse * baseparse)
   GstNmeaparse *nmeaparse = GST_NMEAPARSE (baseparse);
 
   GST_DEBUG_OBJECT (nmeaparse, "start");
+
+  gst_base_parse_set_min_frame_size (baseparse, strlen("$XXXXX,X"));
 
   return TRUE;
 }
