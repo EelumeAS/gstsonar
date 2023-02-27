@@ -12,11 +12,8 @@
  */
 
 #include "nmeaparse.h"
-#include "sonarmux.h"
-#include "sonarshared.h"
 
 #include <stdio.h>
-#include <math.h>
 
 #include <gst/base/gstbytereader.h>
 
@@ -37,7 +34,7 @@ static GstStaticPadTemplate gst_nmeaparse_telemetry_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
   GST_PAD_SRC,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS ("application/telemetry")
+  GST_STATIC_CAPS ("application/nmea")
   );
 
 static GstFlowReturn
@@ -73,14 +70,14 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   g_assert(mapinfo.size > 6); // we set initial min frame size larger than this in gst_nmeaparse_start
   if (mapinfo.data[6] != ',') // check for comma
   {
-    ++*skipsize;
+    *skipsize = 1;
     exit(GST_FLOW_OK);
   }
-  for (const char* c = mapinfo.data + 1; c != mapinfo.data + 6; ++c) // check for the 5 letters between dollar sign and comma
+  for (const char* c = mapinfo.data + 1; c != (const char*)mapinfo.data + 6; ++c) // check for the 5 letters between dollar sign and comma
   {
     if ((*c < 'A') || (*c > 'Z'))
     {
-      ++*skipsize;
+      *skipsize = 1;
       exit(GST_FLOW_OK);
     }
   }
@@ -97,105 +94,7 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
 
   GST_LOG_OBJECT(nmeaparse, "nmea entry of size %d: %.*s", nmea_size, nmea_size, mapinfo.data);
 
-  // allocate and parse telemetry
-  GstSonarTelemetry* telemetry = g_malloc(sizeof(*telemetry));
-  guint64 timestamp = 0;
-  gdouble timeUTC;
-  guint32 len;
-
-  gdouble heading;
-
-  gdouble longitude;
-  gdouble latitude;
-  gchar north;
-  gchar east;
-
-  gdouble roll;
-  gdouble pitch;
-
-  gdouble depth;
-  gdouble altitude;
-
-  if ((sscanf(mapinfo.data,"$EIHEA,%u,%lf,%lu,%lf*",&len,&timeUTC,&timestamp,&heading) == 4)
-      && (heading != -1))
-    *telemetry =
-    (GstSonarTelemetry){
-      .yaw = heading * M_PI / 180.,
-      .presence = GST_SONAR_TELEMETRY_PRESENCE_YAW,
-    };
-  else if ((sscanf(mapinfo.data,"$EIPOS,%u,%lf,%lu,%lf,%c,%lf,%c*",&len,&timeUTC,&timestamp,&latitude,&north,&longitude,&east) == 7)
-      && (latitude != -1) && (longitude != -1))
-    *telemetry =
-    (GstSonarTelemetry){
-      .latitude = latitude * (north == 'N' ? 1 : -1),
-      .longitude = longitude * (east == 'E' ? 1 : -1),
-      .presence = GST_SONAR_TELEMETRY_PRESENCE_LATITUDE | GST_SONAR_TELEMETRY_PRESENCE_LONGITUDE,
-    };
-  else if ((sscanf(mapinfo.data,"$EIORI,%u,%lf,%lu,%lf,%lf*",&len,&timeUTC,&timestamp,&roll,&pitch) == 5)
-      && (roll != -1) && (pitch != -1))
-    *telemetry =
-    (GstSonarTelemetry){
-      .roll = roll * M_PI / 180.,
-      .pitch = pitch * M_PI / 180.,
-      .presence = GST_SONAR_TELEMETRY_PRESENCE_ROLL | GST_SONAR_TELEMETRY_PRESENCE_PITCH,
-    };
-  else if ((sscanf(mapinfo.data,"$EIDEP,%u,%lf,%lu,%lf,m,%lf,m*",&len,&timeUTC,&timestamp,&depth,&altitude) == 5)
-      && (depth != -1) && (altitude != -1))
-    *telemetry =
-    (GstSonarTelemetry){
-      .depth = depth,
-      .altitude = altitude,
-      .presence = GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE | GST_SONAR_TELEMETRY_PRESENCE_DEPTH,
-    };
-  else
-  {
-    GST_WARNING_OBJECT (nmeaparse, "invalid nmea: %.*s\n", nmea_size, mapinfo.data);
-
-    *skipsize = 1;
-    g_free(telemetry);
-    exit(GST_FLOW_OK);
-  }
-
-
-    // set timestamp and caps
-  timestamp *= (guint64)1e6; // ms to ns
-  if (telemetry != NULL)
-  {
-    if (nmeaparse->initial_time == 0)
-    {
-      nmeaparse->initial_time = gst_sonarshared_set_initial_time(timestamp);
-
-      // set constant caps
-      GstCaps *caps = gst_caps_new_simple ("application/telemetry", NULL);
-      GST_DEBUG_OBJECT (nmeaparse, "setting downstream caps on %s:%s to %" GST_PTR_FORMAT,
-        GST_DEBUG_PAD_NAME (GST_BASE_PARSE_SRC_PAD (nmeaparse)), caps);
-
-      if (!gst_pad_set_caps (GST_BASE_PARSE_SRC_PAD (baseparse), caps))
-      {
-        GST_ERROR_OBJECT(nmeaparse, "couldn't set caps");
-        gst_caps_unref (caps);
-        return FALSE;
-      }
-      gst_caps_unref (caps);
-
-    }
-
-    frame->out_buffer = gst_buffer_new_wrapped (telemetry, sizeof(*telemetry));
-
-    if (timestamp < nmeaparse->initial_time)
-    {
-      GST_WARNING_OBJECT(nmeaparse, "timestamp would be negative: %llu < %llu, reset to zero", timestamp, nmeaparse->initial_time);
-      GST_BUFFER_PTS (frame->out_buffer) = GST_BUFFER_DTS (frame->out_buffer) = 0;
-    }
-    else
-      GST_BUFFER_PTS (frame->out_buffer) = GST_BUFFER_DTS (frame->out_buffer) = timestamp - nmeaparse->initial_time;
-
-    GST_TRACE_OBJECT (nmeaparse, "created telemetry buffer %p with timestamp: %llu, pts: %llu", frame->out_buffer, timestamp, GST_BUFFER_PTS (frame->out_buffer));
-
-    exit(gst_base_parse_finish_frame (baseparse, frame, nmea_size + 2));
-  }
-  else
-    exit(GST_FLOW_OK);
+  exit(gst_base_parse_finish_frame (baseparse, frame, nmea_size + 2));
 
   #undef exit
 }
@@ -209,7 +108,22 @@ gst_nmeaparse_start (GstBaseParse * baseparse)
 
   gst_base_parse_set_min_frame_size (baseparse, strlen("$XXXXX,X"));
 
-  return TRUE;
+  // set constant src caps
+  GstCaps *srccaps = gst_caps_new_simple ("application/nmea", NULL);
+  GST_DEBUG_OBJECT (nmeaparse, "setting downstream caps on %s:%s to %" GST_PTR_FORMAT,
+    GST_DEBUG_PAD_NAME (GST_BASE_PARSE_SRC_PAD (nmeaparse)), srccaps);
+
+  if (!gst_pad_set_caps (GST_BASE_PARSE_SRC_PAD (baseparse), srccaps))
+  {
+    GST_ERROR_OBJECT(nmeaparse, "couldn't set src caps");
+    gst_caps_unref (srccaps);
+    return FALSE;
+  }
+  else
+  {
+    gst_caps_unref (srccaps);
+    return TRUE;
+  }
 }
 
 static void
@@ -277,5 +191,4 @@ gst_nmeaparse_class_init (GstNmeaparseClass * klass)
 static void
 gst_nmeaparse_init (GstNmeaparse * nmeaparse)
 {
-  nmeaparse->initial_time = 0;
 }

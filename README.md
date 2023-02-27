@@ -69,13 +69,13 @@ gst-launch-1.0 filesrc location=../samples/in.sbd ! sonarparse ! sonarconvert ! 
 
 Parse both sonar and telemetry data:
 ```
-SBD=../samples/in.sbd && GST_PLUGIN_PATH=. GST_DEBUG=2,sonardetect:6 gst-launch-1.0 filesrc location=$SBD ! sonarparse ! sonarmux name=mux ! sonardetect ! sonarsink filesrc location=$SBD ! nmeaparse ! mux.
-# (tee apparently doesn't go well with filesrc: gst-launch-1.0 filesrc location=../samples/in.sbd ! tee name=t ! queue ! sonarparse ! sonarsink t. ! queue ! nmeaparse ! fakesink)
+SBD=../samples/in.sbd && GST_PLUGIN_PATH=. GST_DEBUG=2,sonardetect:9 gst-launch-1.0 filesrc location=$SBD ! sonarparse ! sonarmux name=mux ! sonardetect ! sonarsink filesrc location=$SBD ! nmeaparse ! eelnmeadec ! mux.
+# (tee apparently doesn't go well with filesrc: gst-launch-1.0 filesrc location=../samples/in.sbd ! tee name=t ! queue ! sonarparse ! sonarsink t. ! queue ! nmeaparse ! eelnmeadec ! fakesink)
 ```
 
-Parse sonar and telemetry data from tcp:
+Parse sonar and telemetry data from tcp and apply detection:
 ```
-GST_PLUGIN_PATH=. gst-launch-1.0 tcpclientsrc host=192.168.3.58 port=2211 ! sonarparse ! sonarmux name=mux ! sonardetect ! sonarsink tcpclientsrc host=192.168.3.100 port=11000 ! nmeaparse ! mux.
+GST_PLUGIN_PATH=. gst-launch-1.0 tcpclientsrc host=192.168.3.58 port=2211 ! sonarparse ! sonarmux name=mux ! sonardetect ! sonarsink tcpclientsrc host=192.168.3.100 port=11000 ! nmeaparse ! eelnmeadec ! mux.
 ```
 
 ## Settings on norbit sonar

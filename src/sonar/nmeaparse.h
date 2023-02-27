@@ -28,7 +28,6 @@ struct _GstNmeaparse
   /* < private > */
 
   GstPad *telsrc; // telemetry source
-  guint64 initial_time;
 };
 
 struct _GstNmeaparseClass
