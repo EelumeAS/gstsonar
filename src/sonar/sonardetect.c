@@ -1,7 +1,7 @@
 /**
  * SECTION:element-gst_sonardetect
  *
- * Sonardetect is a TODO
+ * Sonardetect detects the first point of contact along each beam and records the index on the first intensity
  *
  *
  * <refsect2>
@@ -12,14 +12,8 @@
  */
 
 #include "sonardetect.h"
-#include "sonarshared.h"
-#include "sonarmux.h"
-
-#include <stdio.h>
 
 #include <gst/base/gstbytereader.h>
-
-#define NORBIT_SONAR_PREFIX 0xefbeadde // deadbeef
 
 GST_DEBUG_CATEGORY_STATIC(sonardetect_debug);
 #define GST_CAT_DEFAULT sonardetect_debug
@@ -33,18 +27,10 @@ GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS (
         "sonar/multibeam, "
-        "n_beams = (int) [ 0, MAX ],"
-        "resolution = (int) [ 0, MAX ], "
-        "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ,"
-        "has_telemetry = (boolean) true ;"
+        "detected = (boolean) true ;"
 
-        "sonar/bathymetry, "
-        "n_beams = (int) [ 0, MAX ],"
-        "resolution = (int) 1, "
-        "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ,"
-        "has_telemetry = (boolean) true ;"
+        "sonar/bathymetry,"
+        "detected = (boolean) true ;"
         )
     );
 
@@ -60,44 +46,71 @@ gst_sonardetect_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf)
 {
   GstSonardetect *sonardetect = GST_SONARDETECT (basetransform);
 
-  GST_DEBUG_OBJECT(sonardetect, "dts: %llu, pts: %llu", buf->dts, buf->pts);
-
   GST_OBJECT_LOCK (sonardetect);
 
-  const GstSonarMetaData *sonar_data = &GST_SONAR_META_GET(buf)->data;
+  const GstSonarMetaData *meta_data = &GST_SONAR_META_GET(buf)->data;
   const GstSonarTelemetry *tel = &GST_TELEMETRY_META_GET(buf)->tel;
 
-  GST_DEBUG_OBJECT(sonardetect, "%lu:\tn_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
-    ", pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x"
-    , buf->pts, sonardetect->n_beams, sonardetect->resolution, sonar_data->sound_speed, sonar_data->sample_rate, sonar_data->t0, sonar_data->gain
-    , tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
+  if (sonardetect->has_telemetry)
+    GST_DEBUG_OBJECT(sonardetect, "%lu:\tn_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
+      ", pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x"
+      , buf->pts, sonardetect->n_beams, sonardetect->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0, meta_data->gain
+      , tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
+  else
+    GST_DEBUG_OBJECT(sonardetect, "%lu:\tn_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
+      , buf->pts, sonardetect->n_beams, sonardetect->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0, meta_data->gain);
+
+  GstMapInfo mapinfo;
+  if (!gst_buffer_map (buf, &mapinfo, GST_MAP_READ | GST_MAP_WRITE))
+  {
+    GST_WARNING_OBJECT(sonardetect, "couldn't map sonar buffer at %p", buf);
+  }
+  else
+  {
+    switch(sonardetect->wbms_type)
+    {
+      case WBMS_FLS:
+        if (sonardetect->has_telemetry)
+          sonardetect_detect(buf->pts, mapinfo.data, sonardetect->n_beams, sonardetect->resolution, meta_data, tel);
+        break;
+      default:
+      case WBMS_BATH:
+        break;
+    }
+
+    gst_buffer_unmap(buf, &mapinfo);
+  }
 
   GST_OBJECT_UNLOCK (sonardetect);
 
   return GST_FLOW_OK;
 }
 
-static gboolean
-gst_sonardetect_set_caps (GstBaseTransform * basetransform, GstCaps * incaps, GstCaps * outcaps)
+static GstCaps*
+gst_sonardetect_transform_caps (GstBaseTransform * basetransform, GstPadDirection direction, GstCaps * caps, GstCaps * filter)
 {
   GstSonardetect *sonardetect = GST_SONARDETECT (basetransform);
 
-  GstStructure *s = gst_caps_get_structure (incaps, 0);
+  GstStructure *s = gst_caps_get_structure (caps, 0);
 
-  GST_DEBUG_OBJECT(sonardetect, "caps structure: %s\n", gst_structure_to_string(s));
+  GST_DEBUG_OBJECT(sonardetect, "direction: %d, caps structure: %s", direction, gst_structure_to_string(s));
 
   gint n_beams, resolution;
+  gboolean has_telemetry;
   const gchar *caps_name;
 
-  if ((caps_name = gst_structure_get_name(s))
+  if ((direction == GST_PAD_SINK)
+    && (caps_name = gst_structure_get_name(s))
     && gst_structure_get_int(s, "n_beams", &n_beams)
-    && gst_structure_get_int(s, "resolution", &resolution))
+    && gst_structure_get_int(s, "resolution", &resolution)
+    && gst_structure_get_boolean(s, "has_telemetry", &has_telemetry))
   {
     GST_OBJECT_LOCK (sonardetect);
 
-    GST_DEBUG_OBJECT(sonardetect, "got caps details caps_name: %s, n_beams: %d, resolution: %d", caps_name, n_beams, resolution);
+    GST_DEBUG_OBJECT(sonardetect, "got caps details caps_name: %s, n_beams: %d, resolution: %d, has_telemetry: %d", caps_name, n_beams, resolution, has_telemetry);
     sonardetect->n_beams = (guint32)n_beams;
     sonardetect->resolution = (guint32)resolution;
+    sonardetect->has_telemetry = has_telemetry;
 
     if (strcmp(caps_name, "sonar/multibeam") == 0)
       sonardetect->wbms_type = WBMS_FLS;
@@ -108,14 +121,29 @@ gst_sonardetect_set_caps (GstBaseTransform * basetransform, GstCaps * incaps, Gs
 
     GST_OBJECT_UNLOCK (sonardetect);
 
-    return TRUE;
-  }
-  else
-  {
-    GST_DEBUG_OBJECT(sonardetect, "no details in caps\n");
+    gboolean old_detected;
+    if (gst_structure_get_boolean(s, "detected", &old_detected)
+      && old_detected)
+    {
+      GST_ERROR_OBJECT(sonardetect, "can't run detection on sonardata with existing detection");
+      return NULL;
+    }
+    else
+    {
+      // add true detected field
+      GstCaps *ret = gst_caps_copy(caps);
+      GValue detected = G_VALUE_INIT;
+      g_value_init(&detected, G_TYPE_BOOLEAN);
+      g_value_set_boolean(&detected, TRUE);
+      gst_caps_set_value(ret, "detected", &detected);
 
-    return FALSE;
+      return ret;
+    }
   }
+  else if (filter)
+    return gst_caps_intersect_full (filter, caps, GST_CAPS_INTERSECT_FIRST);
+  else
+    return gst_caps_ref (caps);
 }
 
 static void
@@ -151,8 +179,6 @@ gst_sonardetect_finalize (GObject * object)
 {
   GstSonardetect *sonardetect = GST_SONARDETECT (object);
 
-  gst_sonarshared_finalize();
-
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
@@ -167,19 +193,19 @@ gst_sonardetect_class_init (GstSonardetectClass * klass)
   gobject_class->set_property = gst_sonardetect_set_property;
   gobject_class->get_property = gst_sonardetect_get_property;
 
-  GST_DEBUG_CATEGORY_INIT(sonardetect_debug, "sonardetect", 0, "TODO");
+  GST_DEBUG_CATEGORY_INIT(sonardetect_debug, "sonardetect", 0, "sonardetect");
 
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonardetect",
       "Transform",
-      "TODO", // TODO
+      "Sonardetect detects the first point of contact along each beam and records the index on the first intensity",
       "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonardetect_sink_template);
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonardetect_src_template);
 
   basetransform_class->transform_ip = GST_DEBUG_FUNCPTR (gst_sonardetect_transform_ip);
-  basetransform_class->set_caps = GST_DEBUG_FUNCPTR (gst_sonardetect_set_caps);
+  basetransform_class->transform_caps = GST_DEBUG_FUNCPTR (gst_sonardetect_transform_caps);
 }
 
 static void
@@ -187,4 +213,5 @@ gst_sonardetect_init (GstSonardetect * sonardetect)
 {
   sonardetect->n_beams = 0;
   sonardetect->resolution = 0;
+  sonardetect->has_telemetry = FALSE;
 }

@@ -4,7 +4,13 @@
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
 
-#include "navi.h"
+#include "sonarparse.h"
+#include "sonarmux.h"
+#include "norbit_wbms.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 G_BEGIN_DECLS
 
@@ -30,6 +36,7 @@ struct _GstSonardetect
   wbms_type_t wbms_type;
   guint32 n_beams;
   guint32 resolution;
+  gboolean has_telemetry;
 };
 
 struct _GstSonardetectClass
@@ -40,5 +47,15 @@ struct _GstSonardetectClass
 GType gst_sonardetect_get_type (void);
 
 G_END_DECLS
+
+
+// sonardetect.cpp functions
+
+// stores the index of the first detected point in the first range index for each beam
+void sonardetect_detect(uint64_t timestamp, uint8_t* sonar_data, int n_beams, int resolution, const GstSonarMetaData *meta_data, const GstSonarTelemetry* tel);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* __GST_SONARDETECT_H__ */

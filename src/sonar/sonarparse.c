@@ -1,7 +1,7 @@
 /**
  * SECTION:element-gst_sonarparse
  *
- * Sonarparse is a TODO
+ * Sonarparse parses Norbit WBMS sonar data
  *
  *
  * <refsect2>
@@ -37,16 +37,14 @@ GST_STATIC_PAD_TEMPLATE ("src",
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) [ 0, MAX ], "
         "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ,"
-        "has_telemetry = (boolean) false ;"
+        "parsed = (boolean) true ;"
 
         "sonar/bathymetry, "
         //"format = (string) { norbit }, "
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) 1, "
         "framerate = (fraction) [ 0/1, MAX ], "
-        "parsed = (boolean) true ,"
-        "has_telemetry = (boolean) false ;"
+        "parsed = (boolean) true ;"
         )
     );
 
@@ -95,12 +93,12 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
   gst_byte_reader_skip (&reader, *skipsize);
 
   const guint8 *header_data = NULL;
-  const packet_header_t* header = NULL;
+  const wbms_packet_header_t* header = NULL;
   if (!gst_byte_reader_get_data (&reader, sizeof(*header), &header_data))
     exit;
-  header = (const packet_header_t*)header_data;
+  header = (const wbms_packet_header_t*)header_data;
 
-  if (header->size < sizeof(packet_header_t))
+  if (header->size < sizeof(wbms_packet_header_t))
   {
     GST_ERROR_OBJECT(sonarparse, "size specified in header is too small: %d", header->size);
     gst_buffer_unmap (frame->buffer, &mapinfo);
@@ -124,10 +122,10 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
     case WBMS_BATH:
     {
       GST_DEBUG_OBJECT(sonarparse, "sonar type is bathymetry");
-      const bath_data_header_t* sub_header;
+      const wbms_bath_data_header_t* sub_header;
       if (!gst_byte_reader_get_data (&reader, sizeof(*sub_header), &sub_header_data))
         exit;
-      sub_header = (bath_data_header_t*)sub_header_data;
+      sub_header = (wbms_bath_data_header_t*)sub_header_data;
 
       sub_header_time = sub_header->time;
       sonarparse->caps_name = "sonar/bathymetry";
@@ -147,10 +145,10 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
     case WBMS_FLS: // fls
     {
       GST_DEBUG_OBJECT(sonarparse, "sonar type is fls");
-      const fls_data_header_t* sub_header;
+      const wbms_fls_data_header_t* sub_header;
       if (!gst_byte_reader_get_data (&reader, sizeof(*sub_header), &sub_header_data))
         exit;
-      sub_header = (fls_data_header_t*)sub_header_data;
+      sub_header = (wbms_fls_data_header_t*)sub_header_data;
 
       g_assert(sub_header->dtype == 3); // int16
       sub_header_time = sub_header->time;
@@ -184,7 +182,6 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
       , "resolution", G_TYPE_INT, sonarparse->resolution
       , "framerate", GST_TYPE_FRACTION, sonarparse->framerate, 1
       , "parsed", G_TYPE_BOOLEAN, TRUE
-      , "has_telemetry", G_TYPE_BOOLEAN, FALSE
       , NULL);
 
     GST_DEBUG_OBJECT (sonarparse, "setting downstream caps on %s:%s to %" GST_PTR_FORMAT,
@@ -259,7 +256,7 @@ gst_sonarparse_start (GstBaseParse * baseparse)
 
   GST_DEBUG_OBJECT (sonarparse, "start");
 
-  gst_base_parse_set_min_frame_size (baseparse, sizeof(packet_header_t));
+  gst_base_parse_set_min_frame_size (baseparse, sizeof(wbms_packet_header_t));
 
   return TRUE;
 }
@@ -313,12 +310,12 @@ gst_sonarparse_class_init (GstSonarparseClass * klass)
   gobject_class->set_property = gst_sonarparse_set_property;
   gobject_class->get_property = gst_sonarparse_get_property;
 
-  GST_DEBUG_CATEGORY_INIT(sonarparse_debug, "sonarparse", 0, "TODO");
+  GST_DEBUG_CATEGORY_INIT(sonarparse_debug, "sonarparse", 0, "sonarparse");
 
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonarparse",
-      "Transform",
-      "TODO", // TODO
+      "Parse",
+      "Sonarparse parses Norbit WBMS sonar data",
       "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonarparse_sink_template);

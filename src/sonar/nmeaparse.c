@@ -1,7 +1,7 @@
 /**
  * SECTION:element-gst_nmeaparse
  *
- * Nmeaparse is a TODO
+ * Nmeaparse parses telemetry data from nmea strings
  *
  *
  * <refsect2>
@@ -241,12 +241,12 @@ gst_nmeaparse_class_init (GstNmeaparseClass * klass)
   gobject_class->set_property = gst_nmeaparse_set_property;
   gobject_class->get_property = gst_nmeaparse_get_property;
 
-  GST_DEBUG_CATEGORY_INIT(nmeaparse_debug, "nmeaparse", 0, "TODO");
+  GST_DEBUG_CATEGORY_INIT(nmeaparse_debug, "nmeaparse", 0, "nmeaparse");
 
 
   gst_element_class_set_static_metadata (gstelement_class, "Nmeaparse",
-      "Transform",
-      "TODO", // TODO
+      "Parse",
+      "Nmeaparse parses telemetry data from nmea strings",
       "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
   gst_element_class_add_static_pad_template (gstelement_class, &gst_nmeaparse_telemetry_src_template);

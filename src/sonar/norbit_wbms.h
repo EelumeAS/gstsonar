@@ -1,17 +1,13 @@
 #pragma once
 #include <stdint.h>
 
+// adapted from https://github.com/magnuan/wbms_georef/blob/main/src/bathy_packet.h
+
+// TODO: global scope static assert in C
 //#define JOIN(x,y) x ## y
 //#define ECHO(...) __VA_ARGS__
 //#define static_assert(...) void static_assert_helper(const char [__COUNTER__]) {_Static_assert(__VA_ARGS__); }
-#define static_assert(...)
-
-//inline uint64_t nanoseconds() {
-//  struct timespec ts;
-//  clock_gettime(CLOCK_MONOTONIC, &ts);
-//
-//  return (uint64_t)ts.tv_sec * (uint64_t)1e9 + (uint64_t)ts.tv_nsec;
-//}
+//#define static_assert(...)
 
 #pragma pack(4)
 
@@ -25,8 +21,8 @@ typedef struct{
     uint16_t flags;                 /**< Bit0: Mag based detection | Bit1: Phase based detection | Bit2-8: Quality type | Bit9-12: Detection priority */
     uint8_t quality_flags;          /**< Bit0: SNr test pass | Bit1: Colinarity test pass */
     uint8_t quality_val;            /**< Ad-Hoc detection signal quality metric, based on detection strength and variance ovet time and swath */ 
-}detectionpoint_t;
-static_assert(sizeof(detectionpoint_t) == 20);
+}wbms_detectionpoint_t;
+//static_assert(sizeof(wbms_detectionpoint_t) == 20);
 
 typedef enum // : uint32_t
 {
@@ -42,8 +38,8 @@ typedef struct{
     uint32_t version;               /**< WBMS packet version     */
     uint32_t RESERVED;              /**< 4 bytes reserved for furure use */
     uint32_t crc;                   /**< CRC32 of the size-24 bytes following the header  (crc32, zlib-style SEED=0x00000000, POLY=0xEDB88320)*/
-}packet_header_t; //24 Bytes
-static_assert(sizeof(packet_header_t) == 24);
+}wbms_packet_header_t; //24 Bytes
+//static_assert(sizeof(packet_header_t) == 24);
 
 /** BATH_DATA PACKET SUB-HEADER (WBMS Type 1 packet) */
 typedef struct{
@@ -73,21 +69,17 @@ typedef struct{
     float       swath_dir;              /**< Center beam direction in radians */
     float       swath_open;             /**< Swath opening angle, edge to edge of swath in radians.*/
     float       gate_tilt;              /**< Gate tilt, in radians */
-}bath_data_header_t; //88 bytes
-static_assert(sizeof(bath_data_header_t) == 88);
+}wbms_bath_data_header_t; //88 bytes
+//static_assert(sizeof(bath_data_header_t) == 88);
 
 #define BATH_DATA_MAX_DETECTION_POINTS    4096
 
 /** BATHY PACKET, including common header, sub-header and payload */
 typedef struct{
-    packet_header_t         header;                                    //24B
-    bath_data_header_t      sub_header;                                //88B
-    //detectionpoint_t        dp[BATH_DATA_MAX_DETECTION_POINTS];        //20B*4k = 80kB
-    //detectionpoint_t        dp[256];
-    detectionpoint_t        dp[0];
-
-    //int size() const {return sizeof(header) + sizeof(sub_header) + sizeof(detectionpoint_t) * sub_header.N;};
-}bath_data_packet_t;
+    wbms_packet_header_t         header;                                    //24B
+    wbms_bath_data_header_t      sub_header;                                //88B
+    wbms_detectionpoint_t        dp[0];
+}wbms_bath_data_packet_t;
 
 
 typedef struct{
@@ -127,30 +119,13 @@ typedef struct{
     uint16_t    reserved_4;
     float       gate_tilt;              /**< Gate tilt, in radians */
     uint32_t    reserved_5[8];
-}fls_data_header_t;
-static_assert(sizeof(fls_data_header_t) == 168);
+}wbms_fls_data_header_t;
+//static_assert(sizeof(fls_data_header_t) == 168);
 
-#define N_BEAMS 128
 typedef struct{
-    packet_header_t         header;                                    //24B
-    fls_data_header_t       sub_header;                                //168B
+    wbms_packet_header_t         header;                                    //24B
+    wbms_fls_data_header_t       sub_header;                                //168B
     char data[0];
-
-    //uint16_t beam_intensity(int sample_index, int beam_index) const
-    //{
-    //    return reinterpret_cast<const uint16_t*>(data)[sample_index * sub_header.N + beam_index];
-    //}
-
-    //float beam_angle(int beam_index) const
-    //{
-    //    return reinterpret_cast<const float*>(reinterpret_cast<const uint16_t*>(data) + sub_header.M * sub_header.N)[beam_index];
-    //}
-
-    //int size() const
-    //{
-    //    return sizeof(header) + sizeof(sub_header) + sub_header.M * sub_header.N * sizeof(beam_intensity(0,0)) + sub_header.N * sizeof(beam_angle(0));
-    //};
-
-}fls_data_packet_t;
+}wbms_fls_data_packet_t;
 
 #pragma pack()

@@ -5,7 +5,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstbaseparse.h>
 
-#include "navi.h"
+#include "norbit_wbms.h"
 
 G_BEGIN_DECLS
 

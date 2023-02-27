@@ -1,7 +1,7 @@
 /**
  * SECTION:element-gst_sonarsink
  *
- * Sonarsink is a TODO
+ * Sonarsink visualizes sonar data
  *
  *
  * <refsect2>
@@ -37,7 +37,7 @@ static GstStaticPadTemplate gst_sonarsink_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("sonar/multibeam; sonar/bathymetry")
+    GST_STATIC_CAPS ("sonar/multibeam ; sonar/bathymetry")
     );
 
 static GstFlowReturn
@@ -64,8 +64,10 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
   {
     case WBMS_FLS:
     {
-      const int16_t* beam_intensities = (const int16_t*)(mapinfo.data + sizeof(packet_header_t) + sizeof(fls_data_header_t));
+      const int16_t* beam_intensities = (const int16_t*)(mapinfo.data + sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t));
       const float* beam_angles = (const float*)(beam_intensities + sonarsink->n_beams * sonarsink->resolution);
+
+      const float max_range = ((meta_data->t0 + sonarsink->resolution) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
 
       const float total_gain = sonarsink->gain / meta_data->gain;
 
@@ -75,12 +77,12 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
         {
           int16_t beam_intensity = beam_intensities[range_index * sonarsink->n_beams + beam_index];
           float beam_angle = beam_angles[beam_index];
-          //float range = ((meta_data->t0 + range_index) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
+          float range = ((meta_data->t0 + range_index) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
 
           int vertex_index = 3 * (beam_index * sonarsink->resolution + range_index);
           float* vertex = sonarsink->vertices + vertex_index;
 
-          float range_norm = (float)range_index / (float)sonarsink->resolution;
+          float range_norm = range / max_range;
 
           vertex[0] = -sin(beam_angle) * range_norm * sonarsink->zoom;
           vertex[1] = -1 + cos(beam_angle) * range_norm * sonarsink->zoom;
@@ -89,7 +91,7 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
           float I = total_gain * beam_intensity;
           if (I > 1)
           {
-            GST_DEBUG_OBJECT(sonarsink, "intensity too large: %d > %f", beam_intensity, total_gain);
+            GST_TRACE_OBJECT(sonarsink, "intensity too large: %d > %f", beam_intensity, total_gain);
             I = 1;
             //gst_buffer_unmap (buf, &mapinfo);
             //GST_OBJECT_UNLOCK (sonarsink);
@@ -97,9 +99,39 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
           }
 
           float* color = sonarsink->colors + vertex_index;
-          color[0] = I;
-          color[1] = I;
-          color[2] = I;
+          if (sonarsink->detected)
+          {
+            // the index of the detected first point of contact is stored in the first range_index for each beam
+            int16_t first_contact = beam_intensities[beam_index];
+            if (range_index >= first_contact)
+            {
+              // red
+              color[0] = I;
+              color[1] = 0;
+              color[2] = 0;
+            }
+            else if (range_index == 0)
+            {
+              // black
+              color[0] = 0;
+              color[1] = 0;
+              color[2] = 0;
+            }
+            else
+            {
+              // yellow
+              color[0] = I;
+              color[1] = I;
+              color[2] = 0;
+            }
+          }
+          else
+          {
+            // white
+            color[0] = I;
+            color[1] = I;
+            color[2] = I;
+          }
         }
       }
       break;
@@ -108,11 +140,11 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
     {
       g_assert(sonarsink->resolution == 1);
 
-      const detectionpoint_t* detection_points = (const detectionpoint_t*)(mapinfo.data + sizeof(packet_header_t) + sizeof(bath_data_header_t));
+      const wbms_detectionpoint_t* detection_points = (const wbms_detectionpoint_t*)(mapinfo.data + sizeof(wbms_packet_header_t) + sizeof(wbms_bath_data_header_t));
 
       for (int beam_index=0; beam_index < sonarsink->n_beams; ++beam_index)
       {
-        const detectionpoint_t* dp = detection_points + beam_index;
+        const wbms_detectionpoint_t* dp = detection_points + beam_index;
 
         float range = (dp->sample_number * meta_data->sound_speed) / (2 * meta_data->sample_rate);
 
@@ -212,6 +244,10 @@ gst_sonarsink_set_caps (GstBaseSink * basesink, GstCaps * caps)
     else
       g_assert_not_reached();
 
+    gboolean detected;
+    if (gst_structure_get_boolean(s, "detected", &detected))
+      sonarsink->detected = detected;
+
     GST_OBJECT_UNLOCK (sonarsink);
 
     // initialize visualization once
@@ -297,7 +333,7 @@ gst_sonarsink_class_init (GstSonarsinkClass * klass)
   basesink_class->render = GST_DEBUG_FUNCPTR (gst_sonarsink_render);
   basesink_class->set_caps = GST_DEBUG_FUNCPTR (gst_sonarsink_set_caps);
 
-  GST_DEBUG_CATEGORY_INIT(sonarsink_debug, "sonarsink", 0, "TODO");
+  GST_DEBUG_CATEGORY_INIT(sonarsink_debug, "sonarsink", 0, "sonarsink");
 
   g_object_class_install_property (G_OBJECT_CLASS (klass), PROP_ZOOM,
       g_param_spec_double ("zoom", "zoom",
@@ -311,7 +347,7 @@ gst_sonarsink_class_init (GstSonarsinkClass * klass)
 
   gst_element_class_set_static_metadata (gstelement_class, "Sonarsink",
       "Sink",
-      "TODO", // TODO
+      "visualizes sonar data",
       "Erlend Eriksen <erlend.eriksen@eelume.com>");
 
   gst_element_class_add_static_pad_template (gstelement_class, &gst_sonarsink_sink_template);
@@ -322,6 +358,7 @@ gst_sonarsink_init (GstSonarsink * sonarsink)
 {
   sonarsink->n_beams = 0;
   sonarsink->resolution = 0;
+  sonarsink->detected = FALSE;
   sonarsink->vertices = NULL;
   sonarsink->colors = NULL;
   sonarsink->init_wp = 1;

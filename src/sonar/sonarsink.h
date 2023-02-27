@@ -4,7 +4,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstbasesink.h>
 
-#include "navi.h"
+#include "norbit_wbms.h"
 
 G_BEGIN_DECLS
 
@@ -30,6 +30,7 @@ struct _GstSonarsink
   wbms_type_t wbms_type;
   guint32 n_beams;
   guint32 resolution;
+  gboolean detected; // if detection was run on the data
 
   float* vertices;
   float* colors;

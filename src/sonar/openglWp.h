@@ -35,9 +35,6 @@ const GLchar* vertexSource =
 "void main()\n"
 "{\n"
 "    gl_Position = vec4(position, 1.0);\n"
-"    //float tmpscalar = .4-(gl_Position.z)*.5;\n"
-"    //float scalar = clamp(tmpscalar, 0.0, 1.0);\n"
-"    //Color = vec4(scalar*color,1);\n"
 "    Color = vec4(color,1);\n"
 "}\n"
 ;
@@ -114,7 +111,7 @@ int initWp()
     width = 512;
     height = 512;
 
-    window = SDL_CreateWindow("plot", 0, 0,
+    window = SDL_CreateWindow("sonar", 0, 0,
         //SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         //SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         //displayMode.w, displayMode.h,
