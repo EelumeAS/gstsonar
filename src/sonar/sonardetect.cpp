@@ -4,7 +4,7 @@
 
 void sonardetect_detect(uint64_t timestamp, uint8_t* sonar_data, int n_beams, int resolution, const GstSonarMetaData *meta_data, const GstSonarTelemetry* tel)
 {
-  int16_t* beam_intensities = (int16_t*)(sonar_data + sizeof(packet_header_t) + sizeof(fls_data_header_t));
+  int16_t* beam_intensities = (int16_t*)(sonar_data + sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t));
   float* beam_angles = (float*)(beam_intensities + n_beams * resolution);
 
   for (int beam_index=0; beam_index < n_beams; ++beam_index)

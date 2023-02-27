@@ -93,12 +93,12 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
   gst_byte_reader_skip (&reader, *skipsize);
 
   const guint8 *header_data = NULL;
-  const packet_header_t* header = NULL;
+  const wbms_packet_header_t* header = NULL;
   if (!gst_byte_reader_get_data (&reader, sizeof(*header), &header_data))
     exit;
-  header = (const packet_header_t*)header_data;
+  header = (const wbms_packet_header_t*)header_data;
 
-  if (header->size < sizeof(packet_header_t))
+  if (header->size < sizeof(wbms_packet_header_t))
   {
     GST_ERROR_OBJECT(sonarparse, "size specified in header is too small: %d", header->size);
     gst_buffer_unmap (frame->buffer, &mapinfo);
@@ -122,10 +122,10 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
     case WBMS_BATH:
     {
       GST_DEBUG_OBJECT(sonarparse, "sonar type is bathymetry");
-      const bath_data_header_t* sub_header;
+      const wbms_bath_data_header_t* sub_header;
       if (!gst_byte_reader_get_data (&reader, sizeof(*sub_header), &sub_header_data))
         exit;
-      sub_header = (bath_data_header_t*)sub_header_data;
+      sub_header = (wbms_bath_data_header_t*)sub_header_data;
 
       sub_header_time = sub_header->time;
       sonarparse->caps_name = "sonar/bathymetry";
@@ -145,10 +145,10 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
     case WBMS_FLS: // fls
     {
       GST_DEBUG_OBJECT(sonarparse, "sonar type is fls");
-      const fls_data_header_t* sub_header;
+      const wbms_fls_data_header_t* sub_header;
       if (!gst_byte_reader_get_data (&reader, sizeof(*sub_header), &sub_header_data))
         exit;
-      sub_header = (fls_data_header_t*)sub_header_data;
+      sub_header = (wbms_fls_data_header_t*)sub_header_data;
 
       g_assert(sub_header->dtype == 3); // int16
       sub_header_time = sub_header->time;
@@ -256,7 +256,7 @@ gst_sonarparse_start (GstBaseParse * baseparse)
 
   GST_DEBUG_OBJECT (sonarparse, "start");
 
-  gst_base_parse_set_min_frame_size (baseparse, sizeof(packet_header_t));
+  gst_base_parse_set_min_frame_size (baseparse, sizeof(wbms_packet_header_t));
 
   return TRUE;
 }

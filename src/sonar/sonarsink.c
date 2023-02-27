@@ -64,7 +64,7 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
   {
     case WBMS_FLS:
     {
-      const int16_t* beam_intensities = (const int16_t*)(mapinfo.data + sizeof(packet_header_t) + sizeof(fls_data_header_t));
+      const int16_t* beam_intensities = (const int16_t*)(mapinfo.data + sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t));
       const float* beam_angles = (const float*)(beam_intensities + sonarsink->n_beams * sonarsink->resolution);
 
       const float max_range = ((meta_data->t0 + sonarsink->resolution) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
@@ -140,11 +140,11 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
     {
       g_assert(sonarsink->resolution == 1);
 
-      const detectionpoint_t* detection_points = (const detectionpoint_t*)(mapinfo.data + sizeof(packet_header_t) + sizeof(bath_data_header_t));
+      const wbms_detectionpoint_t* detection_points = (const wbms_detectionpoint_t*)(mapinfo.data + sizeof(wbms_packet_header_t) + sizeof(wbms_bath_data_header_t));
 
       for (int beam_index=0; beam_index < sonarsink->n_beams; ++beam_index)
       {
-        const detectionpoint_t* dp = detection_points + beam_index;
+        const wbms_detectionpoint_t* dp = detection_points + beam_index;
 
         float range = (dp->sample_number * meta_data->sound_speed) / (2 * meta_data->sample_rate);
 

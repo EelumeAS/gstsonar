@@ -4,7 +4,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstbasesink.h>
 
-#include "navi.h"
+#include "norbit_wbms.h"
 
 G_BEGIN_DECLS
 

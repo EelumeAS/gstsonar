@@ -11,7 +11,7 @@
  */
 
 #include "sonarmux.h"
-#include "navi.h"
+#include "norbit_wbms.h"
 #include "nmeaparse.h"
 #include "linalg.h"
 

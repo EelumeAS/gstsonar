@@ -6,7 +6,7 @@
 
 #include "sonarparse.h"
 #include "sonarmux.h"
-#include "navi.h"
+#include "norbit_wbms.h"
 
 #ifdef __cplusplus
 extern "C" {

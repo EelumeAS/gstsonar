@@ -12,7 +12,7 @@
  */
 
 #include "sonarconvert.h"
-#include "navi.h"
+#include "norbit_wbms.h"
 
 #include <stdio.h>
 
@@ -58,7 +58,7 @@ gst_sonarconvert_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf
 
   GST_DEBUG_OBJECT(sonarconvert, "n_beams: %d, resolution: %d", sonarconvert->n_beams, sonarconvert->resolution);
 
-  const gssize offset = sizeof(packet_header_t) + sizeof(fls_data_header_t);
+  const gssize offset = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t);
   const gssize size = sonarconvert->n_beams * sonarconvert->resolution * sizeof(guint16);// + sonarconvert->n_beams * sizeof(float);
   gst_buffer_resize(buf, offset, size);
 
