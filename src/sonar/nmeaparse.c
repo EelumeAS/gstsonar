@@ -12,8 +12,10 @@
  */
 
 #include "nmeaparse.h"
+#include "sonarshared.h"
 
 #include <stdio.h>
+#include <ctype.h>
 
 #include <gst/base/gstbytereader.h>
 
@@ -93,6 +95,65 @@ gst_nmeaparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame,
   }
 
   GST_LOG_OBJECT(nmeaparse, "nmea entry of size %d: %.*s", nmea_size, nmea_size, mapinfo.data);
+
+  guint64 timestamp = 0;
+  gboolean found_timestamp = FALSE;
+
+  // try to find unix epoch
+  if (nmeaparse->timestamp_offset && (nmeaparse->timestamp_offset < nmea_size))
+  {
+    timestamp = strtol(mapinfo.data + nmeaparse->timestamp_offset, NULL, 10);
+
+    if ((timestamp < (long)1e13) // 20.11.2286
+      && (timestamp > (long)1e12)) // 09.09.2001
+    {
+      found_timestamp = TRUE;
+    }
+  }
+
+  if (!found_timestamp)
+  {
+    for (char* c = (char*)mapinfo.data; c != (char*)mapinfo.data + nmea_size;)
+    {
+      if (isdigit(*c))
+      {
+        // check for sane date
+        int timestamp_offset = c - (char*)mapinfo.data;
+        long val = strtol(c, &c, 10);
+        if ((val < (long)1e13) // 20.11.2286
+          && (val > (long)1e12)) // 09.09.2001
+        {
+          found_timestamp = TRUE;
+          timestamp = val;
+          nmeaparse->timestamp_offset = timestamp_offset;
+          break;
+        }
+      }
+      else
+        ++c;
+    }
+  }
+
+  if (found_timestamp)
+  {
+    // set timestamp
+    timestamp *= (guint64)1e6; // ms to ns
+    if (nmeaparse->initial_time == 0)
+      nmeaparse->initial_time = gst_sonarshared_set_initial_time(timestamp);
+
+    if (timestamp < nmeaparse->initial_time)
+    {
+      GST_WARNING_OBJECT(nmeaparse, "timestamp would be negative: %llu < %llu, reset to zero", timestamp, nmeaparse->initial_time);
+      GST_BUFFER_PTS (frame->buffer) = GST_BUFFER_DTS (frame->buffer) = 0;
+    }
+    else
+      GST_BUFFER_PTS (frame->buffer) = GST_BUFFER_DTS (frame->buffer) = timestamp - nmeaparse->initial_time;
+  }
+  else
+  {
+    GST_WARNING_OBJECT(nmeaparse, "could not find a suitable unix epoch timestamp");
+  }
+    
 
   exit(gst_base_parse_finish_frame (baseparse, frame, nmea_size + 2));
 
@@ -191,4 +252,6 @@ gst_nmeaparse_class_init (GstNmeaparseClass * klass)
 static void
 gst_nmeaparse_init (GstNmeaparse * nmeaparse)
 {
+  nmeaparse->initial_time = 0;
+  nmeaparse->timestamp_offset = 0;
 }

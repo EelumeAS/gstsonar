@@ -106,17 +106,7 @@ gst_eelnmeadec_transform (GstBaseTransform * basetransform, GstBuffer * in, GstB
 
   gst_buffer_unmap (in, &mapinfo); \
 
-    // set timestamp and caps
-  timestamp *= (guint64)1e6; // ms to ns
-  if (eelnmeadec->initial_time == 0)
-  {
-    eelnmeadec->initial_time = gst_sonarshared_set_initial_time(timestamp);
-  }
-
-  //GstMemory* mem = gst_buffer_get_memory(out, 0);
-  //GST_DEBUG_OBJECT (eelnmeadec, "n_memory: %d, size: %d", gst_buffer_n_memory(out), mem->size);
-  //out = gst_buffer_new_wrapped (telemetry, sizeof(*telemetry));
-
+  // set out buffer
   gst_buffer_remove_all_memory(out);
   GstMemory *mem = gst_memory_new_wrapped(
     0,                  // flags (GstMemoryFlags)
@@ -127,6 +117,11 @@ gst_eelnmeadec_transform (GstBaseTransform * basetransform, GstBuffer * in, GstB
     NULL,               // user_data
     NULL);              // notify (GDestroyNotify)
   gst_buffer_append_memory(out, mem);
+
+  // set timestamp
+  timestamp *= (guint64)1e6; // ms to ns
+  if (eelnmeadec->initial_time == 0)
+    eelnmeadec->initial_time = gst_sonarshared_set_initial_time(timestamp);
 
   if (timestamp < eelnmeadec->initial_time)
   {
