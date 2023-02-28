@@ -5,6 +5,7 @@
 #include "sonardetect.h"
 #include "nmeaparse.h"
 #include "eelnmeadec.h"
+#include "sbdmux.h"
 
 
 static gboolean
@@ -16,7 +17,8 @@ plugin_init (GstPlugin * plugin)
   || !gst_element_register (plugin, "sonarmux", GST_RANK_NONE, gst_sonarmux_get_type())
   || !gst_element_register (plugin, "sonardetect", GST_RANK_NONE, gst_sonardetect_get_type())
   || !gst_element_register (plugin, "nmeaparse", GST_RANK_NONE, gst_nmeaparse_get_type())
-  || !gst_element_register (plugin, "eelnmeadec", GST_RANK_NONE, gst_eelnmeadec_get_type()))
+  || !gst_element_register (plugin, "eelnmeadec", GST_RANK_NONE, gst_eelnmeadec_get_type())
+  || !gst_element_register (plugin, "sbdmux", GST_RANK_NONE, gst_sbdmux_get_type()))
     return FALSE;
   return TRUE;
 }

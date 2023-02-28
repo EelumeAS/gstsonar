@@ -44,8 +44,8 @@ make install
 
 ## Example launch lines
 
-Note that you need to set `GST_PLUGIN_PATH=$(pwd)` if running from build directory without installing.
-Ie. `GST_PLUGIN_PATH=$(pwd) gst-launch-1.0 ...`.
+Note that you need to set `GST_PLUGIN_PATH=.` if running from build directory without installing the plugin.
+Ie. `GST_PLUGIN_PATH=. gst-launch-1.0 ...`.
 Extra debugging info can be printed with: `GST_DEBUG=2,sonarparse:9` etc.
 
 View sonar data from file:
@@ -78,6 +78,11 @@ Parse sonar and telemetry data from tcp and apply detection:
 GST_PLUGIN_PATH=. gst-launch-1.0 tcpclientsrc host=192.168.3.58 port=2211 ! sonarparse ! sonarmux name=mux ! sonardetect ! sonarsink tcpclientsrc host=192.168.3.100 port=11000 ! nmeaparse ! eelnmeadec ! mux.
 ```
 
+Parse sonar and telemetry data from sbd file and save to another sbd file using sbdmux:
+```
+SBD=../samples/in.sbd && GST_PLUGIN_PATH=. GST_DEBUG=2,sbdmux:9 gst-launch-1.0 filesrc location=$SBD ! sonarparse ! sbdmux name=mux ! filesink location=out.sbd filesrc location=$SBD ! nmeaparse ! mux.
+```
+
 ## Settings on norbit sonar
 
 Connect to control interface:
@@ -85,7 +90,7 @@ Connect to control interface:
 nc 192.168.3.58 2209
 ```
 
-Commands:
+Useful Commands:
 ```
 set_power 1
 set_flip 1
