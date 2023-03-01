@@ -14,6 +14,7 @@
 #include "norbit_wbms.h"
 #include "nmeaparse.h"
 #include "linalg.h"
+#include "sbd.h"
 
 #include <stdio.h>
 
@@ -69,10 +70,10 @@ gst_sbdmux_aggregate (GstAggregator * aggregator, gboolean timeout)
   //GST_TRACE_OBJECT(sbdmux, "aggregate");
 
   if (!sbdmux->sonarbuf)
-    sbdmux->sonarbuf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sbdmux->sonarsink);
+    sbdmux->sonarbuf = sbd_entry(gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sbdmux->sonarsink));
 
   if (!sbdmux->telbuf)
-    sbdmux->telbuf = gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sbdmux->telsink);
+    sbdmux->telbuf = sbd_entry(gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sbdmux->telsink));
 
   GstFlowReturn ret;
 

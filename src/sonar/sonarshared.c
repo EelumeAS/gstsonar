@@ -49,3 +49,15 @@ guint64 gst_sonarshared_set_initial_time(guint64 timestamp)
 
   return ret;
 }
+
+guint64 gst_sonarshared_get_initial_time()
+{
+  guint64 ret;
+  g_mutex_lock(&gst_sonar_shared_data.m);
+
+  ret = gst_sonar_shared_data.initial_time;
+
+  g_mutex_unlock(&gst_sonar_shared_data.m);
+
+  return ret;
+}

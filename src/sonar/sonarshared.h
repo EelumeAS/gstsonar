@@ -16,3 +16,5 @@ void gst_sonarshared_init();
 void gst_sonarshared_finalize();
 
 guint64 gst_sonarshared_set_initial_time(guint64 timestamp);
+
+guint64 gst_sonarshared_get_initial_time();

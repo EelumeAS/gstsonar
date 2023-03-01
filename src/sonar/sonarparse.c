@@ -19,7 +19,7 @@
 
 #include <gst/base/gstbytereader.h>
 
-#define NORBIT_SONAR_PREFIX 0xefbeadde // deadbeef
+#define NORBIT_SONAR_PREFIX 0xefbeadde // deadbeef backwards
 
 GST_DEBUG_CATEGORY_STATIC(sonarparse_debug);
 #define GST_CAT_DEFAULT sonarparse_debug

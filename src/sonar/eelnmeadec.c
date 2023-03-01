@@ -107,7 +107,6 @@ gst_eelnmeadec_transform (GstBaseTransform * basetransform, GstBuffer * in, GstB
   gst_buffer_unmap (in, &mapinfo); \
 
   // set out buffer
-  gst_buffer_remove_all_memory(out);
   GstMemory *mem = gst_memory_new_wrapped(
     0,                  // flags (GstMemoryFlags)
     telemetry,          // data
@@ -116,7 +115,7 @@ gst_eelnmeadec_transform (GstBaseTransform * basetransform, GstBuffer * in, GstB
     sizeof(*telemetry), // size
     NULL,               // user_data
     NULL);              // notify (GDestroyNotify)
-  gst_buffer_append_memory(out, mem);
+  gst_buffer_replace_all_memory(out, mem);
 
   // set timestamp
   timestamp *= (guint64)1e6; // ms to ns
