@@ -23,6 +23,8 @@ GstBuffer* sbd_entry(GstBuffer *payload)
   };
   _Static_assert(sizeof(*header) == 20);
 
+  int padding_size = 0;
+
   g_assert(mapinfo.size > 8);
   if (*(guint32*)mapinfo.data == 0xdeadbeef)
   {
@@ -35,15 +37,46 @@ GstBuffer* sbd_entry(GstBuffer *payload)
     }
   }
   else if (strncmp(mapinfo.data, "$EIHEA", 6) == 0)
+  {
     header->entry_type = SBD_NMEA_EIHEA;
+    padding_size = 20;
+  }
   else if (strncmp(mapinfo.data, "$EIPOS", 6) == 0)
+  {
     header->entry_type = SBD_NMEA_EIPOS;
+    padding_size = 20;
+  }
   else if (strncmp(mapinfo.data, "$EIORI", 6) == 0)
+  {
     header->entry_type = SBD_NMEA_EIORI;
+    padding_size = 16;
+  }
   else if (strncmp(mapinfo.data, "$EIDEP", 6) == 0)
+  {
     header->entry_type = SBD_NMEA_EIDEP;
+    padding_size = 16;
+  }
   else
     g_assert_not_reached();
+
+  if (padding_size)
+  {
+    header->entry_size += padding_size;
+
+    char *padding = (char*)malloc(padding_size);
+    ((int*)padding)[padding_size/sizeof(int) - 1] = mapinfo.size + 1;
+
+    GstMemory *mysterious_padding = gst_memory_new_wrapped(
+      0,                  // flags (GstMemoryFlags)
+      padding,            // data
+      padding_size,       // maxsize
+      0,                  // offset
+      padding_size,       // size
+      NULL,               // user_data
+      NULL);              // notify (GDestroyNotify)
+
+    gst_buffer_prepend_memory(payload, mysterious_padding);
+  }
 
   gst_buffer_unmap (payload, &mapinfo);
 
