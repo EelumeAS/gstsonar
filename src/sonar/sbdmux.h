@@ -56,6 +56,9 @@ struct _GstSbdmux
 {
   GstAggregator aggregator;
 
+  gchar *header_path;
+  gboolean write_header;
+
   GstPad *sonarsink;
   GstPad *telsink;
 

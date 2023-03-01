@@ -80,7 +80,7 @@ GST_PLUGIN_PATH=. gst-launch-1.0 tcpclientsrc host=192.168.3.58 port=2211 ! sona
 
 Parse sonar and telemetry data from sbd file and save to another sbd file using sbdmux:
 ```
-SBD=../samples/in.sbd && GST_PLUGIN_PATH=. GST_DEBUG=2,sbdmux:9 gst-launch-1.0 filesrc location=$SBD ! sonarparse ! sbdmux name=mux ! filesink location=out.sbd filesrc location=$SBD ! nmeaparse ! mux.
+SBD=../samples/in.sbd && GST_PLUGIN_PATH=. GST_DEBUG=2,sbdmux:9 gst-launch-1.0 filesrc location=$SBD ! sonarparse ! sbdmux name=mux header=../NaviScan_iupo_eelume_MBE_3.BIN ! filesink location=out.sbd filesrc location=$SBD ! nmeaparse ! mux.
 ```
 
 ## Settings on norbit sonar

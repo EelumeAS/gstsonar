@@ -57,7 +57,11 @@ GstBuffer* sbd_entry(GstBuffer *payload)
     padding_size = 16;
   }
   else
-    g_assert_not_reached();
+  {
+    // assume sbd header
+    header->entry_type = SBD_HEADER;
+    padding_size = 0;
+  }
 
   if (padding_size)
   {

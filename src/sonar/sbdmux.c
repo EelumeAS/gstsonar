@@ -31,7 +31,10 @@ G_DEFINE_TYPE (GstSbdmux, gst_sbdmux, GST_TYPE_AGGREGATOR);
 enum
 {
   PROP_0,
+  PROP_HEADER,
 };
+
+#define DEFAULT_PROP_HEADER ""
 
 static GstStaticPadTemplate gst_sbdmux_sonar_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sonar",
@@ -69,33 +72,68 @@ gst_sbdmux_aggregate (GstAggregator * aggregator, gboolean timeout)
 
   //GST_TRACE_OBJECT(sbdmux, "aggregate");
 
-  if (!sbdmux->sonarbuf)
-    sbdmux->sonarbuf = sbd_entry(gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sbdmux->sonarsink));
+  GstFlowReturn ret = GST_FLOW_ERROR;
 
-  if (!sbdmux->telbuf)
-    sbdmux->telbuf = sbd_entry(gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sbdmux->telsink));
+  if (sbdmux->write_header && sbdmux->header_path && *sbdmux->header_path)
+  {
+    sbdmux->write_header = FALSE;
 
-  GstFlowReturn ret;
+    FILE *header_file = fopen(sbdmux->header_path, "rb");
+    if (!header_file)
+    {
+      GST_ERROR_OBJECT(sbdmux, "couldn't open header at %s for reading: %s", sbdmux->header_path, strerror(errno));
+      ret = GST_FLOW_ERROR;
+    }
+    else
+    {
+      fseek(header_file, 0, SEEK_END);
+      int header_size = ftell(header_file);
+      fseek(header_file, 0, SEEK_SET);
+      char *header = (char*)malloc(header_size);
 
-  if (!sbdmux->sonarbuf && !sbdmux->telbuf)
-  {
-    GST_WARNING_OBJECT(sbdmux, "no more buffers");
-    ret = GST_FLOW_EOS;
-  }
-  else if (!sbdmux->sonarbuf)
-  {
-    ret = gst_aggregator_finish_buffer(aggregator, sbdmux->telbuf);
-    sbdmux->telbuf = NULL;
-  }
-  else if (!sbdmux->telbuf || (sbdmux->telbuf->pts > sbdmux->sonarbuf->pts))
-  {
-    ret = gst_aggregator_finish_buffer(aggregator, sbdmux->sonarbuf);
-    sbdmux->sonarbuf = NULL;
+      if (!header)
+        GST_ERROR_OBJECT(sbdmux, "couldn't allocate %lu bytes: %s", header_size, strerror(errno));
+      else if (fread(header, 1, header_size, header_file) != header_size)
+        GST_ERROR_OBJECT(sbdmux, "couldn't read %lu bytes from %s: %s", header_size, sbdmux->header_path, strerror(errno));
+      else
+      {
+        GstBuffer *header_buf = gst_buffer_new_wrapped(header, header_size);
+        header_buf->pts = header_buf->dts = 0;
+
+        GstBuffer *header_entry = sbd_entry(header_buf);
+        ret = gst_aggregator_finish_buffer(aggregator, header_entry);
+      }
+      fclose(header_file);
+    }
   }
   else
   {
-    ret = gst_aggregator_finish_buffer(aggregator, sbdmux->telbuf);
-    sbdmux->telbuf = NULL;
+    if (!sbdmux->sonarbuf)
+      sbdmux->sonarbuf = sbd_entry(gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sbdmux->sonarsink));
+
+    if (!sbdmux->telbuf)
+      sbdmux->telbuf = sbd_entry(gst_aggregator_pad_pop_buffer((GstAggregatorPad*)sbdmux->telsink));
+
+    if (!sbdmux->sonarbuf && !sbdmux->telbuf)
+    {
+      GST_WARNING_OBJECT(sbdmux, "no more buffers");
+      ret = GST_FLOW_EOS;
+    }
+    else if (!sbdmux->sonarbuf)
+    {
+      ret = gst_aggregator_finish_buffer(aggregator, sbdmux->telbuf);
+      sbdmux->telbuf = NULL;
+    }
+    else if (!sbdmux->telbuf || (sbdmux->telbuf->pts > sbdmux->sonarbuf->pts))
+    {
+      ret = gst_aggregator_finish_buffer(aggregator, sbdmux->sonarbuf);
+      sbdmux->sonarbuf = NULL;
+    }
+    else
+    {
+      ret = gst_aggregator_finish_buffer(aggregator, sbdmux->telbuf);
+      sbdmux->telbuf = NULL;
+    }
   }
 
   return ret;
@@ -139,6 +177,10 @@ gst_sbdmux_set_property (GObject * object, guint prop_id, const GValue * value,
 
   GST_OBJECT_LOCK (sbdmux);
   switch (prop_id) {
+    case PROP_HEADER:
+      g_free (sbdmux->header_path);
+      sbdmux->header_path = g_value_dup_string (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -154,6 +196,9 @@ gst_sbdmux_get_property (GObject * object, guint prop_id, GValue * value,
 
   GST_OBJECT_LOCK (sbdmux);
   switch (prop_id) {
+    case PROP_HEADER:
+      g_value_set_string (value, sbdmux->header_path);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -186,6 +231,11 @@ gst_sbdmux_class_init (GstSbdmuxClass * klass)
 
   GST_DEBUG_CATEGORY_INIT(sbdmux_debug, "sbdmux", 0, "sbdmux");
 
+  g_object_class_install_property (G_OBJECT_CLASS (klass), PROP_HEADER,
+      g_param_spec_string ("header", "header",
+          "path to sbd header", DEFAULT_PROP_HEADER,
+          G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE | G_PARAM_STATIC_STRINGS));
+
   gst_element_class_set_static_metadata (gstelement_class, "Sbdmux",
       "Sink",
       "Muxer for splicing telemetry data and sonar data",
@@ -199,6 +249,8 @@ gst_sbdmux_class_init (GstSbdmuxClass * klass)
 static void
 gst_sbdmux_init (GstSbdmux * sbdmux)
 {
+  sbdmux->header_path = g_strdup(DEFAULT_PROP_HEADER);
+  sbdmux->write_header = TRUE;
   sbdmux->sonarbuf = NULL;
   sbdmux->telbuf = NULL;
 }
