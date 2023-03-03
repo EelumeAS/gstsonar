@@ -6,8 +6,6 @@
 
 #include <gst/base/gstaggregator.h>
 
-#include "sonarparse.h"
-
 G_BEGIN_DECLS
 
 // telemetry

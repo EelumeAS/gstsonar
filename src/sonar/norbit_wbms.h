@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "sonarmeta.h"
 
 // adapted from https://github.com/magnuan/wbms_georef/blob/main/src/bathy_packet.h
 
@@ -127,5 +128,7 @@ typedef struct{
     wbms_fls_data_header_t       sub_header;                                //168B
     char data[0];
 }wbms_fls_data_packet_t;
+
+GstSonarMeasurementType wbms_get_intensity_type(uint32_t dtype);
 
 #pragma pack()

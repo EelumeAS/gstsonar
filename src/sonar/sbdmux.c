@@ -11,7 +11,6 @@
  */
 
 #include "sbdmux.h"
-#include "norbit_wbms.h"
 #include "nmeaparse.h"
 #include "linalg.h"
 #include "sbd.h"
