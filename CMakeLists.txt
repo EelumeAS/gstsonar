@@ -34,12 +34,7 @@ include_directories(${EIGEN_INCLUDE_DIRS})
 set(EXT_LIBS ${GST_LIBRARIES} ${EIGEN_LIBRARIES} -lGLEW -lGL -lSDL2)
 ENDIF()
 
-file(GLOB SONAR_SRC src/sonar/*.c*)
+file(GLOB SONAR_SRC src/*.c*)
 add_library(gstsonar SHARED ${SONAR_SRC})
 target_link_libraries(gstsonar ${EXT_LIBS})
 install(TARGETS gstsonar DESTINATION lib/gstreamer-1.0)
-
-file(GLOB PLAYSONAR_SRC src/playsonar/*.c*)
-add_executable(playsonar ${PLAYSONAR_SRC})
-target_link_libraries(playsonar ${EXT_LIBS})
-install(TARGETS playsonar DESTINATION bin)
