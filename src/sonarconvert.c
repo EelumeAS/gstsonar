@@ -12,7 +12,7 @@
  */
 
 #include "sonarconvert.h"
-#include "norbit_wbms.h"
+#include "sonarmeta.h"
 
 #include <stdio.h>
 
@@ -58,9 +58,11 @@ gst_sonarconvert_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf
 
   GST_DEBUG_OBJECT(sonarconvert, "n_beams: %d, resolution: %d", sonarconvert->n_beams, sonarconvert->resolution);
 
-  const gssize offset = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t);
-  const gssize size = sonarconvert->n_beams * sonarconvert->resolution * sizeof(guint16);// + sonarconvert->n_beams * sizeof(float);
-  gst_buffer_resize(buf, offset, size);
+  const GstSonarFormat *format = &(GST_SONAR_META_GET(buf)->format);
+
+  const gssize offset = format->measurement_offset;
+  const gssize size = format->angle_offset - format->measurement_offset;
+  gst_buffer_resize(buf, format->measurement_offset, size);
 
   //GstVideoFormat fmt = gst_video_format_from_string("GRAY8");
   //gst_buffer_add_video_meta(buf, GST_VIDEO_FRAME_FLAG_NONE, fmt, sonarconvert->n_beams, sonarconvert->resolution);
