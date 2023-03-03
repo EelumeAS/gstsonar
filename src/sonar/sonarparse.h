@@ -6,30 +6,9 @@
 #include <gst/base/gstbaseparse.h>
 
 #include "norbit_wbms.h"
+#include "sonarmeta.h"
 
 G_BEGIN_DECLS
-
-// sonar meta
-GType gst_sonar_meta_api_get_type (void);
-const GstMetaInfo * gst_sonar_meta_get_info (void);
-#define GST_SONAR_META_GET(buf) ((GstSonarMeta *)gst_buffer_get_meta(buf,gst_sonar_meta_api_get_type()))
-#define GST_SONAR_META_ADD(buf) ((GstSonarMeta *)gst_buffer_add_meta(buf,gst_sonar_meta_get_info(),NULL))
-
-typedef struct
-{
-  float sound_speed; // Filtered sanitized sound speed in m/s
-  float sample_rate; // Sample rate in reported range sample index, in Hz
-  int t0; // Sample index of first sample in each beam
-  float gain; // Intensity value gain
-
-} GstSonarMetaData;
-
-typedef struct
-{
-  GstMeta meta;
-  GstSonarMetaData data;
-
-} GstSonarMeta;
 
 // sonarparse
 #define GST_TYPE_SONARPARSE \
@@ -51,7 +30,6 @@ struct _GstSonarparse
   GstBaseParse baseparse;
 
   /* < private > */
-  wbms_type_t wbms_type;
   guint32 n_beams;
   guint32 resolution;
   guint32 framerate;
@@ -59,7 +37,7 @@ struct _GstSonarparse
 
   guint64 initial_time;
 
-  GstSonarMetaData next_meta_data;
+  GstSonarMeta next_meta;
 };
 
 struct _GstSonarparseClass

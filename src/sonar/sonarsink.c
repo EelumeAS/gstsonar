@@ -13,7 +13,6 @@
 
 #include "sonarsink.h"
 #include "openglWp.h"
-#include "sonarparse.h"
 
 #include <stdio.h>
 
@@ -48,10 +47,12 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
   GST_OBJECT_LOCK (sonarsink);
 
   //GstSonarMeta *meta = GST_SONAR_META_GET(buf);
-  GstSonarMetaData *meta_data = &(GST_SONAR_META_GET(buf))->data;
+  const GstSonarMeta *meta = GST_SONAR_META_GET(buf);
+  const GstSonarFormat *format = &meta->format;
+  const GstSonarParams *params = &meta->params;
 
   GST_DEBUG_OBJECT(sonarsink, "%lu: rendering buffer: %p, width n_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
-    , buf->pts, buf, sonarsink->n_beams, sonarsink->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0, meta_data->gain);
+    , buf->pts, buf, sonarsink->n_beams, sonarsink->resolution, params->sound_speed, params->sample_rate, params->t0, params->gain);
 
   GstMapInfo mapinfo;
   if (!gst_buffer_map (buf, &mapinfo, GST_MAP_READ))
@@ -60,24 +61,21 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
     return GST_FLOW_ERROR;
   }
 
-  switch(sonarsink->wbms_type)
+  switch(sonarsink->sonar_type)
   {
-    case WBMS_FLS:
+    case GST_SONAR_TYPE_FLS:
     {
-      const int16_t* beam_intensities = (const int16_t*)(mapinfo.data + sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t));
-      const float* beam_angles = (const float*)(beam_intensities + sonarsink->n_beams * sonarsink->resolution);
+      const float max_range = ((params->t0 + sonarsink->resolution) * params->sound_speed) / (2 * params->sample_rate);
 
-      const float max_range = ((meta_data->t0 + sonarsink->resolution) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
-
-      const float total_gain = sonarsink->gain / meta_data->gain;
+      const float total_gain = sonarsink->gain / params->gain;
 
       for (int range_index=0; range_index < sonarsink->resolution; ++range_index)
       {
         for (int beam_index=0; beam_index < sonarsink->n_beams; ++beam_index)
         {
-          int16_t beam_intensity = beam_intensities[range_index * sonarsink->n_beams + beam_index];
-          float beam_angle = beam_angles[beam_index];
-          float range = ((meta_data->t0 + range_index) * meta_data->sound_speed) / (2 * meta_data->sample_rate);
+          float beam_intensity = gst_sonar_format_get_measurement(format, mapinfo.data, beam_index, range_index);
+          float beam_angle = gst_sonar_format_get_angle(format, mapinfo.data, beam_index);
+          float range = ((params->t0 + range_index) * params->sound_speed) / (2 * params->sample_rate);
 
           int vertex_index = 3 * (beam_index * sonarsink->resolution + range_index);
           float* vertex = sonarsink->vertices + vertex_index;
@@ -102,7 +100,7 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
           if (sonarsink->detected)
           {
             // the index of the detected first point of contact is stored in the first range_index for each beam
-            int16_t first_contact = beam_intensities[beam_index];
+            float first_contact = gst_sonar_format_get_measurement(format, mapinfo.data, beam_index, 0);
             if (range_index >= first_contact)
             {
               // red
@@ -136,23 +134,22 @@ gst_sonarsink_render (GstBaseSink * basesink, GstBuffer * buf)
       }
       break;
     }
-    case WBMS_BATH:
+    case GST_SONAR_TYPE_BATHYMETRY:
     {
       g_assert(sonarsink->resolution == 1);
 
-      const wbms_detectionpoint_t* detection_points = (const wbms_detectionpoint_t*)(mapinfo.data + sizeof(wbms_packet_header_t) + sizeof(wbms_bath_data_header_t));
-
       for (int beam_index=0; beam_index < sonarsink->n_beams; ++beam_index)
       {
-        const wbms_detectionpoint_t* dp = detection_points + beam_index;
+        float sample_number = gst_sonar_format_get_measurement(format, mapinfo.data, beam_index, 0);
+        float angle = gst_sonar_format_get_angle(format, mapinfo.data, beam_index);
 
-        float range = (dp->sample_number * meta_data->sound_speed) / (2 * meta_data->sample_rate);
+        float range = (sample_number * params->sound_speed) / (2 * params->sample_rate);
 
         int vertex_index = 3 * beam_index;
         float* vertex = sonarsink->vertices + vertex_index;
 
-        vertex[0] = sin(dp->angle) * range * sonarsink->zoom;
-        vertex[1] = -cos(dp->angle) * range * sonarsink->zoom;
+        vertex[0] = sin(angle) * range * sonarsink->zoom;
+        vertex[1] = -cos(angle) * range * sonarsink->zoom;
         vertex[2] = -1;
 
 
@@ -238,9 +235,9 @@ gst_sonarsink_set_caps (GstBaseSink * basesink, GstCaps * caps)
     }
 
     if (strcmp(caps_name, "sonar/multibeam") == 0)
-      sonarsink->wbms_type = WBMS_FLS;
+      sonarsink->sonar_type = GST_SONAR_TYPE_FLS;
     else if (strcmp(caps_name, "sonar/bathymetry") == 0)
-      sonarsink->wbms_type = WBMS_BATH;
+      sonarsink->sonar_type = GST_SONAR_TYPE_BATHYMETRY;
     else
       g_assert_not_reached();
 

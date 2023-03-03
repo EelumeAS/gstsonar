@@ -33,14 +33,12 @@ GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS (
         "sonar/multibeam, "
-        //"format = (string) { norbit }, "
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) [ 0, MAX ], "
         "framerate = (fraction) [ 0/1, MAX ], "
         "parsed = (boolean) true ;"
 
         "sonar/bathymetry, "
-        //"format = (string) { norbit }, "
         "n_beams = (int) [ 0, MAX ],"
         "resolution = (int) 1, "
         "framerate = (fraction) [ 0/1, MAX ], "
@@ -133,12 +131,23 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
       sonarparse->resolution = 1;
       sonarparse->framerate = sub_header->ping_rate;
 
-      sonarparse->next_meta_data =
-      (GstSonarMetaData){
-        .sound_speed = sub_header->snd_velocity,
-        .sample_rate = sub_header->sample_rate,
-        .t0 = 0, // t0 doesn't apply
-        .gain = sub_header->gain,
+      sonarparse->next_meta =
+      (GstSonarMeta){
+        .format = (GstSonarFormat){
+          .measurement_type = GST_SONAR_MEASUREMENT_TYPE_INT32,
+          .measurement_stride = sizeof(wbms_detectionpoint_t),
+          .stride = sizeof(wbms_detectionpoint_t),
+          .measurement_offset = sizeof(wbms_packet_header_t) + sizeof(wbms_bath_data_header_t),
+          .angle_offset = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t) + sizeof(((wbms_detectionpoint_t*)NULL)->sample_number),
+          .angle_type = GST_SONAR_MEASUREMENT_TYPE_FLOAT32,
+          .angle_stride = sizeof(wbms_detectionpoint_t),
+        },
+        .params = (GstSonarParams){
+          .sound_speed = sub_header->snd_velocity,
+          .sample_rate = sub_header->sample_rate,
+          .t0 = 0, // t0 doesn't apply
+          .gain = sub_header->gain,
+        },
       };
       break;
     }
@@ -157,12 +166,31 @@ gst_sonarparse_handle_frame (GstBaseParse * baseparse, GstBaseParseFrame * frame
       sonarparse->resolution = sub_header->M;
       sonarparse->framerate = sub_header->ping_rate;
 
-      sonarparse->next_meta_data =
-      (GstSonarMetaData){
-        .sound_speed = sub_header->snd_velocity,
-        .sample_rate = sub_header->sample_rate,
-        .t0 = sub_header->t0,
-        .gain = sub_header->gain,
+      GstSonarMeasurementType intensity_type = wbms_get_intensity_type(sub_header->dtype);
+      if (intensity_type == GST_SONAR_MEASUREMENT_TYPE_INVALID)
+      {
+        GST_ERROR_OBJECT(sonarparse, "dtype invalid / not implemented: %d\n", sub_header->dtype);
+        return GST_FLOW_ERROR;
+      }
+      guint intensity_stride = gst_sonar_measurement_type_get_size(intensity_type);
+
+      sonarparse->next_meta =
+      (GstSonarMeta){
+        .format = (GstSonarFormat){
+          .measurement_type = intensity_type,
+          .measurement_stride = intensity_stride,
+          .stride = sub_header->N * intensity_stride,
+          .measurement_offset = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t),
+          .angle_offset = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t) + sub_header->N * sub_header->M * intensity_stride,
+          .angle_type = GST_SONAR_MEASUREMENT_TYPE_FLOAT32,
+          .angle_stride = 4,
+        },
+        .params = (GstSonarParams){
+          .sound_speed = sub_header->snd_velocity,
+          .sample_rate = sub_header->sample_rate,
+          .t0 = sub_header->t0,
+          .gain = sub_header->gain,
+        },
       };
       break;
     }
@@ -244,7 +272,8 @@ gst_sonarparse_pre_push_frame (GstBaseParse * baseparse, GstBaseParseFrame * fra
   GstSonarparse *sonarparse = GST_SONARPARSE (baseparse);
 
   GstSonarMeta *meta = GST_SONAR_META_ADD(frame->buffer);
-  meta->data = sonarparse->next_meta_data;
+  meta->format = sonarparse->next_meta.format;
+  meta->params = sonarparse->next_meta.params;
 
   return GST_FLOW_OK;
 }
@@ -334,50 +363,12 @@ gst_sonarparse_init (GstSonarparse * sonarparse)
   sonarparse->framerate = 0;
   sonarparse->caps_name = NULL;
 
-  sonarparse->next_meta_data = (GstSonarMetaData){0};
+  sonarparse->next_meta = (GstSonarMeta){
+    .format = (GstSonarFormat){0},
+    .params = (GstSonarParams){0},
+  };
 
   sonarparse->initial_time = 0;
 
   gst_sonarshared_init();
-}
-
-// sonar meta
-GType gst_sonar_meta_api_get_type(void)
-{
-	static GType type;
-	static const gchar *tags[] = { GST_META_TAG_MEMORY_STR, NULL };
-
-	if (g_once_init_enter(&type))
-	{
-		GType _type = gst_meta_api_type_register("GstSonarMetaAPI", tags);
-		g_once_init_leave(&type, _type);
-	}
-	return type;
-}
-
-static gboolean gst_sonar_meta_init(GstMeta *meta, G_GNUC_UNUSED gpointer params, G_GNUC_UNUSED GstBuffer *buffer)
-{
-	GstSonarMeta *sonarmeta = (GstSonarMeta *)meta;
-
-	sonarmeta->data = (GstSonarMetaData){0};
-
-	return TRUE;
-}
-
-const GstMetaInfo *gst_sonar_meta_get_info(void)
-{
-	static const GstMetaInfo *meta_info = NULL;
-
-	if (g_once_init_enter(&meta_info))
-	{
-		const GstMetaInfo *meta = gst_meta_register(
-				gst_sonar_meta_api_get_type(),
-				"GstSonarMeta",
-				sizeof(GstSonarMeta),
-				(GstMetaInitFunction)gst_sonar_meta_init,
-				(GstMetaFreeFunction)NULL,
-				(GstMetaTransformFunction)NULL);
-		g_once_init_leave(&meta_info, meta);
-	}
-	return meta_info;
 }

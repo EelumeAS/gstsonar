@@ -4,7 +4,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstbasesink.h>
 
-#include "norbit_wbms.h"
+#include "sonarmeta.h"
 
 G_BEGIN_DECLS
 
@@ -27,7 +27,7 @@ struct _GstSonarsink
   GstBaseSink basesink;
 
   /* < private > */
-  wbms_type_t wbms_type;
+  GstSonarType sonar_type;
   guint32 n_beams;
   guint32 resolution;
   gboolean detected; // if detection was run on the data

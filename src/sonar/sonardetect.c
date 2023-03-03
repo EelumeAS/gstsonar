@@ -48,17 +48,17 @@ gst_sonardetect_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf)
 
   GST_OBJECT_LOCK (sonardetect);
 
-  const GstSonarMetaData *meta_data = &GST_SONAR_META_GET(buf)->data;
+  const GstSonarMeta *meta = GST_SONAR_META_GET(buf);
   const GstSonarTelemetry *tel = &GST_TELEMETRY_META_GET(buf)->tel;
 
   if (sonardetect->has_telemetry)
     GST_DEBUG_OBJECT(sonardetect, "%lu:\tn_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
       ", pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x"
-      , buf->pts, sonardetect->n_beams, sonardetect->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0, meta_data->gain
+      , buf->pts, sonardetect->n_beams, sonardetect->resolution, meta->params.sound_speed, meta->params.sample_rate, meta->params.t0, meta->params.gain
       , tel->pitch, tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
   else
     GST_DEBUG_OBJECT(sonardetect, "%lu:\tn_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f"
-      , buf->pts, sonardetect->n_beams, sonardetect->resolution, meta_data->sound_speed, meta_data->sample_rate, meta_data->t0, meta_data->gain);
+      , buf->pts, sonardetect->n_beams, sonardetect->resolution, meta->params.sound_speed, meta->params.sample_rate, meta->params.t0, meta->params.gain);
 
   GstMapInfo mapinfo;
   if (!gst_buffer_map (buf, &mapinfo, GST_MAP_READ | GST_MAP_WRITE))
@@ -67,14 +67,14 @@ gst_sonardetect_transform_ip (GstBaseTransform * basetransform, GstBuffer * buf)
   }
   else
   {
-    switch(sonardetect->wbms_type)
+    switch(sonardetect->sonar_type)
     {
-      case WBMS_FLS:
+      case GST_SONAR_TYPE_FLS:
         if (sonardetect->has_telemetry)
-          sonardetect_detect(buf->pts, mapinfo.data, sonardetect->n_beams, sonardetect->resolution, meta_data, tel);
+          sonardetect_detect(buf->pts, mapinfo.data, sonardetect->n_beams, sonardetect->resolution, meta, tel);
         break;
       default:
-      case WBMS_BATH:
+      case GST_SONAR_TYPE_BATHYMETRY:
         break;
     }
 
@@ -113,9 +113,9 @@ gst_sonardetect_transform_caps (GstBaseTransform * basetransform, GstPadDirectio
     sonardetect->has_telemetry = has_telemetry;
 
     if (strcmp(caps_name, "sonar/multibeam") == 0)
-      sonardetect->wbms_type = WBMS_FLS;
+      sonardetect->sonar_type = GST_SONAR_TYPE_FLS;
     else if (strcmp(caps_name, "sonar/bathymetry") == 0)
-      sonardetect->wbms_type = WBMS_BATH;
+      sonardetect->sonar_type = GST_SONAR_TYPE_FLS;
     else
       g_assert_not_reached();
 

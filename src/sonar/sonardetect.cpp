@@ -1,11 +1,12 @@
 #include "sonardetect.h"
+#include "sonarmeta.h"
 
 #include "stdint.h"
 
-void sonardetect_detect(uint64_t timestamp, uint8_t* sonar_data, int n_beams, int resolution, const GstSonarMetaData *meta_data, const GstSonarTelemetry* tel)
+void sonardetect_detect(uint64_t timestamp, char* sonar_data, int n_beams, int resolution, const GstSonarMeta *meta, const GstSonarTelemetry* tel)
 {
-  int16_t* beam_intensities = (int16_t*)(sonar_data + sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t));
-  float* beam_angles = (float*)(beam_intensities + n_beams * resolution);
+  const GstSonarFormat *format = &meta->format;
+  //const GstSonarParams *params = &meta->params;
 
   for (int beam_index=0; beam_index < n_beams; ++beam_index)
   {
@@ -13,8 +14,9 @@ void sonardetect_detect(uint64_t timestamp, uint8_t* sonar_data, int n_beams, in
 
     for (int range_index=0; range_index < resolution; ++range_index)
     {
-      int16_t* beam_intensity = beam_intensities + range_index * n_beams + beam_index;
-      total_intensity += *beam_intensity;
+      //float beam_angle = gst_sonar_format_get_angle(format, sonar_data, beam_index);
+      float beam_intensity = gst_sonar_format_get_measurement(format, (const char*)sonar_data, beam_index, range_index);
+      total_intensity += beam_intensity;
 
       // draw cross
       //if ((beam_index == (int)(n_beams / 2))
@@ -29,12 +31,13 @@ void sonardetect_detect(uint64_t timestamp, uint8_t* sonar_data, int n_beams, in
     bool found_largest_intensity = false;
     for (int range_index=1; range_index < resolution; ++range_index)
     {
-      int16_t* beam_intensity = beam_intensities + range_index * n_beams + beam_index;
+      float beam_intensity = gst_sonar_format_get_measurement(format, sonar_data, beam_index, range_index);
+      float prev_beam_intensity = gst_sonar_format_get_measurement(format, sonar_data, beam_index, range_index - 1);
 
-      if ((*beam_intensity > limit) && (beam_intensity[-n_beams] < limit))
+      if ((beam_intensity > limit) && (prev_beam_intensity < limit))
       {
         // store the index of the first detected point in the first range index for each beam
-        beam_intensities[beam_index] = range_index;
+        gst_sonar_format_set_measurement(format, sonar_data, beam_index, 0, range_index);
         break;
       }
     }
