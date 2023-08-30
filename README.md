@@ -16,9 +16,10 @@ Install the following libraries that are prerequisites for building gstsonar.
 
 ```
 $ sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good libsdl2-dev libglew-dev libeigen3-dev
+$ sudo apt-get install curl zip unzip tar
 ```
 
-### Windows:
+Second line are requirements when using vcpkg as package manager.
 
 * [EIGEN3](https://eigen.tuxfamily.org/index.php?title=Main_Page)
 * [GStreamer](https://gstreamer.freedesktop.org/download/)
@@ -26,6 +27,7 @@ $ sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstr
 * [GLEW](https://sourceforge.net/projects/glew/)
 * OpenGL (Preinstalled on Windows)
 
+Windows:
 For Windows, you must also manually add the dll file directories of SDL2 and GLEW to the %PATH% environment variable.
 Also, you must edit the paths to the libraries in CMakeLists.txt .
 Not sure how to avoid all the manual configuration in Windows ¯\\_(ツ)_/¯.
