@@ -1,0 +1,6 @@
+# This is the list of Gstsonar's significant contributors
+#
+# To see the full list of contributors, see the revision history in source control
+Eelume AS <opensource@eelume.com>
+Erlend Eriksen
+Ture Fronczek-Munter
