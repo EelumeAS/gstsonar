@@ -78,7 +78,7 @@ $ gst-launch-1.0 tcpclientsrc host=192.168.6.121 port=2210 ! sonarparse ! sonars
 The following tables lists the open-source projects used in Gstsonar, licensed under open-source licenses:
 
 | Library | License |
-| ---|
+| --- | --- |
 | [EIGEN3](https://eigen.tuxfamily.org/index.php?title=Main_Page) | MPL2 |
 | [GLEW](https://glew.sourceforge.net/) |  The source code is licensed under the Modified BSD License, the Mesa 3-D License (MIT) and the Khronos License (MIT) |
 | [Gstreamer](https://gstreamer.freedesktop.org/) | LGPL |
