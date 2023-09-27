@@ -7,17 +7,22 @@
 // Licensed under the LGPL v2.1 License.
 // See LICENSE file in the project root for full license information.
 // ***************************************************************************
+#include "eelnmeadec/eelnmeadec.h"
+#include "nmeaparse/nmeaparse.h"
 #include "sonarparse/sonarparse.h"
 #include "sonarsink/sonarsink.h"
-
+#include "sonarmux/sonarmux.h"
 
 static gboolean plugin_init(GstPlugin* plugin)
 {
-    if (!gst_element_register(plugin, "sonarparse", GST_RANK_NONE, gst_sonarparse_get_type()) 
-        || !gst_element_register(plugin, "sonarsink", GST_RANK_NONE, gst_sonarsink_get_type()))
-        {
-            return FALSE;
-        }
+    if (   !gst_element_register(plugin, "eelnmeadec", GST_RANK_NONE, gst_eelnmeadec_get_type()) 
+        || !gst_element_register(plugin, "nmeaparse", GST_RANK_NONE, gst_nmeaparse_get_type()) 
+        || !gst_element_register(plugin, "sonarparse", GST_RANK_NONE, gst_sonarparse_get_type()) 
+        || !gst_element_register(plugin, "sonarsink", GST_RANK_NONE, gst_sonarsink_get_type())
+        || !gst_element_register(plugin, "sonarmux", GST_RANK_NONE, gst_sonarmux_get_type()))
+    {
+        return FALSE;
+    }
     return TRUE;
 }
 

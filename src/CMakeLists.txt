@@ -25,5 +25,8 @@ target_link_libraries(
         ${EXT_LIBS})
 
 add_subdirectory(common)
+add_subdirectory(eelnmeadec)
+add_subdirectory(nmeaparse)
+add_subdirectory(sonarmux)
 add_subdirectory(sonarparse)
 add_subdirectory(sonarsink)

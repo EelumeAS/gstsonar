@@ -10,8 +10,9 @@
 #ifndef __GST_NMEAPARSE_H__
 #define __GST_NMEAPARSE_H__
 
-#include <gst/base/gstbaseparse.h>
 #include <gst/gst.h>
+
+#include <gst/base/gstbaseparse.h>
 
 G_BEGIN_DECLS
 

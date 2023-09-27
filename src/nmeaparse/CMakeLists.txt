@@ -1,16 +1,12 @@
 set(SRC
-    norbit_wbms.c
-    sbd.c
-    sonarparse.c
+    nmeaparse.c
     )
 
-set(HDR    
-    norbit_wbms.h
-    sbd.h
+set(HDR        
     )
 
 set(PUBLIC_HDR
-    sonarparse.h
+    nmeaparse.h
     )
 
 target_sources(${TARGET_LIB}

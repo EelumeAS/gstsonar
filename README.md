@@ -52,6 +52,15 @@ $ make
 $ make install
 ```
 
+## GStreamer Plug-ins
+
+| Plugin | Description | 
+| --- | --- |
+| `sonarparse` | Parses sonar data from both SBD frames and TCP frames from a Norbit sonar. |
+| `sonarsink`  | Takes a stream of either `sonar/bathymetry` or `sonar/multibeam` and shows the data. Press "ESC" to exit, press "SPACE" to pause. |
+| `sonarmux`   | Sonar mux that combines sonar data and telemetry data. |
+| `nmeaparse`  | Parses NMEA data from SBD frames or TCP frames.| 
+| `eelnmeadec` | Decodes telemetry/navigation data in Eelume navigation format. |
 
 ## Example launch lines
 
@@ -72,6 +81,17 @@ View sonar data (multibeam/FLS or bathymetry) from tcp:
 ```
 $ gst-launch-1.0 tcpclientsrc host=192.168.6.58 port=2211 ! sonarparse ! sonarsink zoom=4
 $ gst-launch-1.0 tcpclientsrc host=192.168.6.121 port=2210 ! sonarparse ! sonarsink zoom=0.04
+```
+
+Parse both sonar and telemetry data:
+```
+$ SBD=../samples/in.sbd && GST_PLUGIN_PATH=. GST_DEBUG=2 gst-launch-1.0 filesrc location=$SBD ! sonarparse ! sonarmux name=mux ! sonarsink filesrc location=$SBD ! nmeaparse ! eelnmeadec ! mux.
+# (tee apparently doesn't go well with filesrc: gst-launch-1.0 filesrc location=../samples/in.sbd ! tee name=t ! queue ! sonarparse ! sonarsink t. ! queue ! nmeaparse ! eelnmeadec ! fakesink)
+```
+
+Parse both sonar and telemetry data from tcp:
+```
+GST_PLUGIN_PATH=. gst-launch-1.0 tcpclientsrc host=192.168.6.58 port=2211 ! sonarparse ! sonarmux name=mux ! sonarsink tcpclientsrc host=192.168.6.100 port=11000 ! nmeaparse ! eelnmeadec ! mux.
 ```
 
 # Libraries used in Gstsonar

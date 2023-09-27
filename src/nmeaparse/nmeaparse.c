@@ -20,8 +20,8 @@
  * </refsect2>
  */
 
-#include "nmeaparse.h"
 #include "common/sonarshared.h"
+#include "nmeaparse/nmeaparse.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -231,7 +231,7 @@ static void gst_nmeaparse_class_init(GstNmeaparseClass* klass)
     GST_DEBUG_CATEGORY_INIT(nmeaparse_debug, "nmeaparse", 0, "nmeaparse");
 
 
-    gst_element_class_set_static_metadata(gstelement_class, "Nmeaparse", "Parse", "Nmeaparse parses telemetry data from nmea strings", "Eelume AS <opensource@eelume.com>");
+    gst_element_class_set_static_metadata(gstelement_class, "Nmeaparse", "Parse", "Nmeaparse parses telemetry data from NMEA strings", "Eelume AS <opensource@eelume.com>");
 
     gst_element_class_add_static_pad_template(gstelement_class, &gst_nmeaparse_telemetry_src_template);
     gst_element_class_add_static_pad_template(gstelement_class, &gst_nmeaparse_sink_template);
