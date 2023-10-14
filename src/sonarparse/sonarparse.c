@@ -142,6 +142,9 @@ static GstFlowReturn gst_sonarparse_handle_frame(GstBaseParse* baseparse, GstBas
                     },
                 .params =
                     (GstSonarParams){
+                        .time        = (guint64)(sub_header->time*1.0e6),
+                        .network_time = (guint64)(sub_header->time_net*1.0e6),
+                        .ping_number = sub_header->ping_number,
                         .sound_speed = sub_header->snd_velocity,
                         .sample_rate = sub_header->sample_rate,
                         .t0          = 0,    // t0 doesn't apply
@@ -185,7 +188,10 @@ static GstFlowReturn gst_sonarparse_handle_frame(GstBaseParse* baseparse, GstBas
                         .angle_stride       = 4,
                     },
                 .params =
-                    (GstSonarParams){
+                    (GstSonarParams){           
+                        .time        = (guint64)(sub_header->time*1.0e6),
+                        .network_time = (guint64)(sub_header->time_net*1.0e6),
+                        .ping_number = sub_header->ping_number,
                         .sound_speed = sub_header->snd_velocity,
                         .sample_rate = sub_header->sample_rate,
                         .t0          = sub_header->t0,

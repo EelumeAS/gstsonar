@@ -48,6 +48,9 @@ typedef struct
 
 typedef struct
 {
+    guint64 time;          // TX time, microseconds since Unix epoch
+    guint64 network_time;  // Network time for packet, microseconds since Unix epoch 
+    guint32 ping_number;   // Ping number
     gfloat sound_speed;    // Filtered sanitized sound speed in m/s
     gfloat sample_rate;    // Sample rate in reported range sample index, in Hz
     guint t0;              // Sample index of first sample in each beam
