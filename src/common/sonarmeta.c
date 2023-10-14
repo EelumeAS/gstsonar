@@ -95,6 +95,21 @@ void gst_sonar_format_set_angle(const GstSonarFormat* format, char* buffer, int 
     return gst_sonar_measurement_type_set_value(format->angle_type, buffer + format->angle_offset + beam_index * format->angle_stride, value);
 }
 
+float gst_sonar_format_get_intensity(const GstSonarFormat* format, const char* buffer, int beam_index)
+{
+    return gst_sonar_measurement_type_get_value(format->angle_type, buffer + format->intensity_offset + beam_index * format->measurement_stride);
+}
+
+guint8 gst_sonar_format_get_quality_flags(const GstSonarFormat* format, const char* buffer, int beam_index)
+{
+    return gst_sonar_measurement_type_get_value(format->angle_type, buffer + format->quality_flags_offset + beam_index * format->measurement_stride);
+}
+
+guint8 gst_sonar_format_get_quality_val(const GstSonarFormat* format, const char* buffer, int beam_index)
+{
+    return gst_sonar_measurement_type_get_value(format->angle_type, buffer + format->quality_val_offset + beam_index * format->measurement_stride);
+}
+
 GType gst_sonar_meta_api_get_type(void)
 {
     static GType type;

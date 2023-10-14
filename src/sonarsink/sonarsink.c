@@ -24,6 +24,7 @@
 #include "openglWp.h"
 
 #include <stdio.h>
+#include <math.h>
 
 GST_DEBUG_CATEGORY_STATIC(sonarsink_debug);
 #define GST_CAT_DEFAULT sonarsink_debug
@@ -54,8 +55,8 @@ static GstFlowReturn gst_sonarsink_render(GstBaseSink* basesink, GstBuffer* buf)
     const GstSonarFormat* format = &meta->format;
     const GstSonarParams* params = &meta->params;
 
-    GST_DEBUG_OBJECT(sonarsink, "%lu: rendering buffer: %p, width n_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f", buf->pts, buf, sonarsink->n_beams,
-        sonarsink->resolution, params->sound_speed, params->sample_rate, params->t0, params->gain);
+    //GST_DEBUG_OBJECT(sonarsink, "%lu: rendering buffer: %p, width n_beams = %d, resolution = %d, sound_speed = %f, sample_rate = %f, t0 = %d, gain = %f", buf->pts, buf, sonarsink->n_beams,
+    //    sonarsink->resolution, params->sound_speed, params->sample_rate, params->t0, params->gain);
 
     GstMapInfo mapinfo;
     if (!gst_buffer_map(buf, &mapinfo, GST_MAP_READ))
@@ -63,6 +64,8 @@ static GstFlowReturn gst_sonarsink_render(GstBaseSink* basesink, GstBuffer* buf)
         GST_OBJECT_UNLOCK(sonarsink);
         return GST_FLOW_ERROR;
     }
+
+    //GST_TRACE_OBJECT(sonarsink, "timestamp TX: %lu     timestamp net: %lu   ping_number: %i", params->time, params->network_time, params->ping_number);
 
     switch (sonarsink->sonar_type)
     {
@@ -88,11 +91,11 @@ static GstFlowReturn gst_sonarsink_render(GstBaseSink* basesink, GstBuffer* buf)
                     vertex[0] = -sin(beam_angle) * range_norm * sonarsink->zoom;
                     vertex[1] = -1 + cos(beam_angle) * range_norm * sonarsink->zoom;
                     vertex[2] = -1;
-
+                
                     float I = total_gain * beam_intensity;
                     if (I > 1)
                     {
-                        GST_TRACE_OBJECT(sonarsink, "intensity too large: %f > %f", beam_intensity, total_gain);
+                        //GST_TRACE_OBJECT(sonarsink, "intensity too large: %f > %f", beam_intensity, total_gain);
                         I = 1;
                         // gst_buffer_unmap (buf, &mapinfo);
                         // GST_OBJECT_UNLOCK (sonarsink);
@@ -145,6 +148,8 @@ static GstFlowReturn gst_sonarsink_render(GstBaseSink* basesink, GstBuffer* buf)
             {
                 float sample_number = gst_sonar_format_get_measurement(format, mapinfo.data, beam_index, 0);
                 float angle         = gst_sonar_format_get_angle(format, mapinfo.data, beam_index);
+                uint8_t quality     = gst_sonar_format_get_quality_val(format, mapinfo.data, beam_index);
+                float intensity     = gst_sonar_format_get_intensity(format, mapinfo.data, beam_index);
 
                 float range = (sample_number * params->sound_speed) / (2 * params->sample_rate);
 
@@ -155,11 +160,11 @@ static GstFlowReturn gst_sonarsink_render(GstBaseSink* basesink, GstBuffer* buf)
                 vertex[1] = -cos(angle) * range * sonarsink->zoom;
                 vertex[2] = -1;
 
-
+                const float quality_color = (quality <= 1 ? 1.0f : 0.0f) ;  // Color bad quality points red 
                 float* color = sonarsink->colors + vertex_index;
-                color[0]     = 1;
-                color[1]     = 1;
-                color[2]     = 1;
+                color[0]     = 1.0f * fmin(40.0f, intensity) / 40.0f;
+                color[1]     = quality_color * fmin(40.0f, intensity) / 40.0f;
+                color[2]     = quality_color * fmin(40.0f, intensity) / 40.0f;
             }
             break;
         }

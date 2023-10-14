@@ -43,7 +43,13 @@ typedef struct
     guint measurement_offset;                    // offset of first measurement in buffer
     guint angle_offset;                          // offset of first angle
     GstSonarMeasurementType angle_type;          // type of each angle
-    guint angle_stride;                          // bytes between each angle
+    guint angle_stride;                          // stride between angle measurements
+    guint upper_gate_offset;                     // offset of first upper gate in buffer
+    guint lower_gate_offset;                     // offset of first lower gate in buffer
+    guint intensity_offset;                      // offset of first intensity in buffer
+    guint flags_offset;                          // offset of first status flag in buffer
+    guint quality_flags_offset;                  // offset of first quality flag in buffer
+    guint quality_val_offset;                    // offset of first quality vlaue in buffer
 } GstSonarFormat;
 
 typedef struct
@@ -80,7 +86,10 @@ extern "C"
 
     float gst_sonar_format_get_angle(const GstSonarFormat* format, const char* buffer, int beam_index);
     void gst_sonar_format_set_angle(const GstSonarFormat* format, char* buffer, int beam_index, float value);
-
+    float gst_sonar_format_get_intensity(const GstSonarFormat* format, const char* buffer, int beam_index);
+    guint8 gst_sonar_format_get_quality_flags(const GstSonarFormat* format, const char* buffer, int beam_index);
+    guint8 gst_sonar_format_get_quality_val(const GstSonarFormat* format, const char* buffer, int beam_index);
+    
 #ifdef __cplusplus
 }    // extern "C"
 #endif

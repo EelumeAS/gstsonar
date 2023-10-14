@@ -136,9 +136,16 @@ static GstFlowReturn gst_sonarparse_handle_frame(GstBaseParse* baseparse, GstBas
                         .measurement_stride = sizeof(wbms_detectionpoint_t),
                         .stride             = sizeof(wbms_detectionpoint_t),
                         .measurement_offset = sizeof(wbms_packet_header_t) + sizeof(wbms_bath_data_header_t),
-                        .angle_offset       = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t) + sizeof(((wbms_detectionpoint_t*)NULL)->sample_number),
+                        .angle_offset       = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t) + offsetof(wbms_detectionpoint_t, angle),
                         .angle_type         = GST_SONAR_MEASUREMENT_TYPE_FLOAT32,
                         .angle_stride       = sizeof(wbms_detectionpoint_t),
+                        .upper_gate_offset  = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t) + offsetof(wbms_detectionpoint_t, upper_gate),                                
+                        .lower_gate_offset  = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t) + offsetof(wbms_detectionpoint_t, lower_gate),                                
+                        .intensity_offset   = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t) + offsetof(wbms_detectionpoint_t, intensity),                                
+                        .flags_offset       = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t) + offsetof(wbms_detectionpoint_t, flags),                                
+                        .quality_flags_offset  = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t) + offsetof(wbms_detectionpoint_t, quality_flags),                                
+                        .quality_val_offset = sizeof(wbms_packet_header_t) + sizeof(wbms_fls_data_header_t) + offsetof(wbms_detectionpoint_t, quality_val),                               
+
                     },
                 .params =
                     (GstSonarParams){
