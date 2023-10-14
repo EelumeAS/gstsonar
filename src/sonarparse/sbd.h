@@ -6,7 +6,7 @@
 // All rights reserved
 //
 // Parts of this code is adapted from https://github.com/magnuan/wbms_georef/blob/main/src/eelume_sbd_nav.c
-// Parts of this code is licensed under the MIT license. 
+// Parts of this code is licensed under the MIT license.
 //
 // Other parts licensed under the LGPL v2.1 License.
 // See LICENSE file in the project root for full license information.

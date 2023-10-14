@@ -98,14 +98,14 @@ static void gst_sonarmux_update_pretel_posttel(gpointer data, gpointer user_data
     }
     else if (mapinfo.size != sizeof(GstSonarTelemetry))
     {
-        GST_WARNING_OBJECT(sonarmux, "telemetry buffer at %p had wrong size %llu != %llu", telbuf, mapinfo.size, sizeof(GstSonarTelemetry));
+        GST_WARNING_OBJECT(sonarmux, "telemetry buffer at %p had wrong size %lu != %lu", telbuf, mapinfo.size, sizeof(GstSonarTelemetry));
         gst_buffer_unmap(telbuf, &mapinfo);
     }
     else
     {
         GstSonarTelemetry* tel = (GstSonarTelemetry*)mapinfo.data;
 
-        GST_TRACE_OBJECT(sonarmux, "%llu:\tgot telemetry buf %p: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence=%02x", telbuf->pts, telbuf, tel->pitch,
+        GST_TRACE_OBJECT(sonarmux, "%lu:\tgot telemetry buf %p: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence=%02x", telbuf->pts, telbuf, tel->pitch,
             tel->roll, tel->yaw, tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
 
         if (telbuf->pts > sonarmux->sonarbuf->pts)
@@ -203,11 +203,11 @@ static GstFlowReturn gst_sonarmux_aggregate(GstAggregator* aggregator, gboolean 
             if (gst_sonar_telemetry_has_full_presence(&sonarmux->pretel.tel))
             {
                 const GstSonarTelemetry* tel = &sonarmux->posttel.tel;
-                GST_LOG_OBJECT(sonarmux, "%llu:\tposttel: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x", telbuf->pts, tel->pitch, tel->roll, tel->yaw,
+                GST_LOG_OBJECT(sonarmux, "%lu:\tposttel: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x", telbuf->pts, tel->pitch, tel->roll, tel->yaw,
                     tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
 
                 tel = &sonarmux->pretel.tel;
-                GST_LOG_OBJECT(sonarmux, "%llu:\tpretel: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x", telbuf->pts, tel->pitch, tel->roll, tel->yaw,
+                GST_LOG_OBJECT(sonarmux, "%lu:\tpretel: pitch=%f, roll=%f, yaw=%f, latitude=%f, longitude=%f, depth=%f, altitude=%f, presence: %#02x", telbuf->pts, tel->pitch, tel->roll, tel->yaw,
                     tel->latitude, tel->longitude, tel->depth, tel->altitude, tel->presence);
 
                 // prepare and release sonar buffer

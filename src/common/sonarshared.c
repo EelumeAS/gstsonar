@@ -32,25 +32,25 @@ guint64 gst_sonarshared_set_initial_time(guint64 timestamp)
 
     if (gst_sonar_shared_data.initial_time == 0)
     {
-        GST_WARNING("setting global initial time from %llu", timestamp);
+        GST_WARNING("setting global initial time from %lu", timestamp);
 
         ret = gst_sonar_shared_data.initial_time = timestamp;
     }
     else if (gst_sonar_shared_data.initial_time * 10 > timestamp)
     {
-        GST_WARNING("global initial time is too large: %llu * 10 > %llu, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
+        GST_WARNING("global initial time is too large: %lu * 10 > %lu, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
 
         ret = timestamp;
     }
     else if (gst_sonar_shared_data.initial_time < timestamp * 10)
     {
-        GST_WARNING("global initial time is too small: %llu < %llu * 10, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
+        GST_WARNING("global initial time is too small: %lu < %lu * 10, starting from zero", gst_sonar_shared_data.initial_time, timestamp);
 
         ret = timestamp;
     }
     else
     {
-        GST_WARNING("using global initial time %llu", gst_sonar_shared_data.initial_time);
+        GST_WARNING("using global initial time %lu", gst_sonar_shared_data.initial_time);
 
         ret = gst_sonar_shared_data.initial_time;
     }

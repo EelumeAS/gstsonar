@@ -20,8 +20,8 @@
  * </refsect2>
  */
 
-#include "sonarparse.h"
 #include "common/sonarshared.h"
+#include "sonarparse/sonarparse.h"
 
 #include <stdio.h>
 
@@ -150,9 +150,9 @@ static GstFlowReturn gst_sonarparse_handle_frame(GstBaseParse* baseparse, GstBas
             };
             break;
         }
-        case WBMS_FLS:    // fls
+        case WBMS_FLS:    // FLS
         {
-            GST_DEBUG_OBJECT(sonarparse, "sonar type is fls");
+            GST_DEBUG_OBJECT(sonarparse, "sonar type is FLS");
             const wbms_fls_data_header_t* sub_header;
             if (!gst_byte_reader_get_data(&reader, sizeof(*sub_header), &sub_header_data))
                 exit;
@@ -206,7 +206,7 @@ static GstFlowReturn gst_sonarparse_handle_frame(GstBaseParse* baseparse, GstBas
         GstCaps* caps = gst_caps_new_simple(sonarparse->caps_name, "n_beams", G_TYPE_INT, sonarparse->n_beams, "resolution", G_TYPE_INT, sonarparse->resolution, "framerate", GST_TYPE_FRACTION,
             sonarparse->framerate, 1, "parsed", G_TYPE_BOOLEAN, TRUE, NULL);
 
-        GST_DEBUG_OBJECT(sonarparse, "setting downstream caps on %s:%s to %" GST_PTR_FORMAT, GST_DEBUG_PAD_NAME(GST_BASE_PARSE_SRC_PAD(sonarparse)), caps);
+        GST_DEBUG_OBJECT(sonarparse, "setting downstream caps on %s:%s to %s" GST_PTR_FORMAT, GST_DEBUG_PAD_NAME(GST_BASE_PARSE_SRC_PAD(sonarparse)), caps);
 
         if (!gst_pad_set_caps(GST_BASE_PARSE_SRC_PAD(sonarparse), caps))
         {
@@ -226,7 +226,7 @@ static GstFlowReturn gst_sonarparse_handle_frame(GstBaseParse* baseparse, GstBas
     // set timestamp
     if (timestamp < sonarparse->initial_time)
     {
-        GST_WARNING_OBJECT(sonarparse, "timestamp would be negative: %llu < %llu, reset to zero", timestamp, gst_sonar_shared_data.initial_time);
+        GST_WARNING_OBJECT(sonarparse, "timestamp would be negative: %lu < %lu, reset to zero", timestamp, gst_sonar_shared_data.initial_time);
         GST_BUFFER_PTS(frame->buffer) = GST_BUFFER_DTS(frame->buffer) = 0;
     }
     else
@@ -236,7 +236,7 @@ static GstFlowReturn gst_sonarparse_handle_frame(GstBaseParse* baseparse, GstBas
 
     // debug framerate
     {
-        GST_LOG_OBJECT(sonarparse, "time: %f %llu", sub_header_time, GST_BUFFER_PTS(frame->buffer));
+        GST_LOG_OBJECT(sonarparse, "time: %f %lu", sub_header_time, GST_BUFFER_PTS(frame->buffer));
         static double prev_pts = 0;
         double pts             = sub_header_time;
         static double fps      = 0;

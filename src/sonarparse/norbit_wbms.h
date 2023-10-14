@@ -6,7 +6,7 @@
 // All rights reserved
 //
 // Parts of this code come from https://github.com/magnuan/wbms_georef/blob/main/src/bathy_packet.h
-// Licensed under the MIT license. 
+// Licensed under the MIT license.
 //
 // Other parts licensed under the LGPL v2.1 License.
 // See LICENSE file in the project root for full license information.

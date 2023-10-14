@@ -89,7 +89,7 @@ static GstFlowReturn gst_eelnmeadec_transform(GstBaseTransform* basetransform, G
         };
     else
     {
-        GST_WARNING_OBJECT(eelnmeadec, "invalid nmea: %.*s\n", mapinfo.size - 2, mapinfo.data);
+        GST_WARNING_OBJECT(eelnmeadec, "invalid nmea: %.*s\n", (int)(mapinfo.size - 2), mapinfo.data);
 
         *telemetry = (GstSonarTelemetry){0};
     }
@@ -113,13 +113,13 @@ static GstFlowReturn gst_eelnmeadec_transform(GstBaseTransform* basetransform, G
 
     if (timestamp < eelnmeadec->initial_time)
     {
-        GST_WARNING_OBJECT(eelnmeadec, "timestamp would be negative: %llu < %llu, reset to zero", timestamp, eelnmeadec->initial_time);
+        GST_WARNING_OBJECT(eelnmeadec, "timestamp would be negative: %lu < %lu, reset to zero", timestamp, eelnmeadec->initial_time);
         GST_BUFFER_PTS(out) = GST_BUFFER_DTS(out) = 0;
     }
     else
         GST_BUFFER_PTS(out) = GST_BUFFER_DTS(out) = timestamp - eelnmeadec->initial_time;
 
-    GST_TRACE_OBJECT(eelnmeadec, "created telemetry buffer %p, timestamp: %llu, pts: %llu", out, timestamp, GST_BUFFER_PTS(out));
+    GST_TRACE_OBJECT(eelnmeadec, "created telemetry buffer %p, timestamp: %lu, pts: %lu", out, timestamp, GST_BUFFER_PTS(out));
 
     return GST_FLOW_OK;
 }

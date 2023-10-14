@@ -143,7 +143,7 @@ static GstFlowReturn gst_nmeaparse_handle_frame(GstBaseParse* baseparse, GstBase
 
         if (timestamp < nmeaparse->initial_time)
         {
-            GST_WARNING_OBJECT(nmeaparse, "timestamp would be negative: %llu < %llu, reset to zero", timestamp, nmeaparse->initial_time);
+            GST_WARNING_OBJECT(nmeaparse, "timestamp would be negative: %lu < %lu, reset to zero", timestamp, nmeaparse->initial_time);
             GST_BUFFER_PTS(frame->buffer) = GST_BUFFER_DTS(frame->buffer) = 0;
         }
         else
