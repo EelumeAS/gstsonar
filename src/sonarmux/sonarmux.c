@@ -350,38 +350,3 @@ static void gst_sonarmux_pad_init(GstSonarmuxPad* pad)
 G_DEFINE_TYPE(GstSonarmuxPad, gst_sonarmux_pad, GST_TYPE_AGGREGATOR_PAD);
 
 
-// telemetry meta
-GType gst_telemetry_meta_api_get_type(void)
-{
-    static GType type;
-    static const gchar* tags[] = {GST_META_TAG_MEMORY_STR, NULL};
-
-    if (g_once_init_enter(&type))
-    {
-        GType _type = gst_meta_api_type_register("GstTelemetryMetaAPI", tags);
-        g_once_init_leave(&type, _type);
-    }
-    return type;
-}
-
-static gboolean gst_telemetry_meta_init(GstMeta* meta, G_GNUC_UNUSED gpointer params, G_GNUC_UNUSED GstBuffer* buffer)
-{
-    GstTelemetryMeta* telemetrymeta = (GstTelemetryMeta*)meta;
-
-    telemetrymeta->tel = (GstSonarTelemetry){0};
-
-    return TRUE;
-}
-
-const GstMetaInfo* gst_telemetry_meta_get_info(void)
-{
-    static const GstMetaInfo* meta_info = NULL;
-
-    if (g_once_init_enter(&meta_info))
-    {
-        const GstMetaInfo* meta = gst_meta_register(
-            gst_telemetry_meta_api_get_type(), "GstTelemetryMeta", sizeof(GstTelemetryMeta), (GstMetaInitFunction)gst_telemetry_meta_init, (GstMetaFreeFunction)NULL, (GstMetaTransformFunction)NULL);
-        g_once_init_leave(&meta_info, meta);
-    }
-    return meta_info;
-}

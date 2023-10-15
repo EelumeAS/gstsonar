@@ -42,6 +42,10 @@ enum
 #define DEFAULT_PROP_ZOOM 1
 #define DEFAULT_PROP_GAIN 1
 
+const double rad2deg = 180.0/M_PI;
+const double deg2rad = M_PI/180.0;
+bool metadata_warning_shown = false;
+
 static GstStaticPadTemplate gst_sonarsink_sink_template = GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("sonar/multibeam ; sonar/bathymetry"));
 
 static GstFlowReturn gst_sonarsink_render(GstBaseSink* basesink, GstBuffer* buf)
@@ -63,6 +67,23 @@ static GstFlowReturn gst_sonarsink_render(GstBaseSink* basesink, GstBuffer* buf)
     {
         GST_OBJECT_UNLOCK(sonarsink);
         return GST_FLOW_ERROR;
+    }
+
+    GstTelemetryMeta* tele_meta = GST_TELEMETRY_META_GET(buf);
+    if(tele_meta != NULL)
+    {
+        GST_INFO_OBJECT(sonarsink, "telemetry: lat: %.6f  long: %.6f  roll: %.2f  pitch: %.2f  heading: %.2f  depth: %.2f m  altitude: %.2f m", 
+            tele_meta->tel.latitude,  tele_meta->tel.longitude,
+             tele_meta->tel.roll*rad2deg, tele_meta->tel.pitch*rad2deg,  tele_meta->tel.yaw*rad2deg,
+             tele_meta->tel.depth, tele_meta->tel.altitude);
+    }
+    else
+    {
+        if(!metadata_warning_shown)
+        {
+            GST_INFO_OBJECT(sonarsink, "telemetry not available");
+        }
+        metadata_warning_shown = true;
     }
 
     //GST_TRACE_OBJECT(sonarsink, "timestamp TX: %lu     timestamp net: %lu   ping_number: %i", params->time, params->network_time, params->ping_number);
