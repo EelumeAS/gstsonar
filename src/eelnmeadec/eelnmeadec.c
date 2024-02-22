@@ -65,32 +65,51 @@ static GstFlowReturn gst_eelnmeadec_transform(GstBaseTransform* basetransform, G
     gdouble altitude;
 
     if ((sscanf(mapinfo.data, "$EIHEA,%u,%lf,%lu,%lf*", &len, &timeUTC, &timestamp, &heading) == 4) && (heading != -1))
+    {
         *telemetry = (GstSonarTelemetry){
             .yaw      = heading * M_PI / 180.,
             .presence = GST_SONAR_TELEMETRY_PRESENCE_YAW,
         };
-    else if ((sscanf(mapinfo.data, "$EIPOS,%u,%lf,%lu,%lf,%c,%lf,%c*", &len, &timeUTC, &timestamp, &latitude, &north, &longitude, &east) == 7) && (latitude != -1) && (longitude != -1))
+    }
+    else if ((sscanf(mapinfo.data, "$EIPOS,%u,%lf,%lu,%lf,%c,%lf,%c*", &len, &timeUTC, &timestamp, &latitude, &north, &longitude, &east) == 7) && (latitude != -1) && (longitude != -1)) 
+    {
+        // latitude and longitude are >= 0 if valid, direction is given by north and east
         *telemetry = (GstSonarTelemetry){
             .latitude  = latitude * (north == 'N' ? 1 : -1),
             .longitude = longitude * (east == 'E' ? 1 : -1),
             .presence  = GST_SONAR_TELEMETRY_PRESENCE_LATITUDE | GST_SONAR_TELEMETRY_PRESENCE_LONGITUDE,
         };
-    else if ((sscanf(mapinfo.data, "$EIORI,%u,%lf,%lu,%lf,%lf*", &len, &timeUTC, &timestamp, &roll, &pitch) == 5) && (roll != -1) && (pitch != -1))
+    }
+    else if ((sscanf(mapinfo.data, "$EIORI,%u,%lf,%lu,%lf,%lf*", &len, &timeUTC, &timestamp, &roll, &pitch) == 5))
+    {
+        // if attitude is not available roll==-1 and pitch==-1, but then EIORI is probably not sent
         *telemetry = (GstSonarTelemetry){
             .roll     = roll * M_PI / 180.,
             .pitch    = pitch * M_PI / 180.,
             .presence = GST_SONAR_TELEMETRY_PRESENCE_ROLL | GST_SONAR_TELEMETRY_PRESENCE_PITCH,
         };
-    else if ((sscanf(mapinfo.data, "$EIDEP,%u,%lf,%lu,%lf,m,%lf,m*", &len, &timeUTC, &timestamp, &depth, &altitude) == 5) && (depth != -1) && (altitude != -1))
+    }
+    else if ((sscanf(mapinfo.data, "$EIDEP,%u,%lf,%lu,%lf,m,%lf,m*", &len, &timeUTC, &timestamp, &depth, &altitude) == 5))
+    {
         *telemetry = (GstSonarTelemetry){
             .depth    = depth,
-            .altitude = altitude,
-            .presence = GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE | GST_SONAR_TELEMETRY_PRESENCE_DEPTH,
-        };
+            .altitude = altitude
+            };
+
+        if(depth > -1.0)
+        {
+            // Depth <= -1 means depth is not available or invalid
+            telemetry->presence = GST_SONAR_TELEMETRY_PRESENCE_DEPTH;
+        }
+        if(altitude > -1.0)
+        {
+            // Altitude = -1 means altitude is not available
+            telemetry->presence |= GST_SONAR_TELEMETRY_PRESENCE_ALTITUDE;
+        }
+    }
     else
     {
         GST_WARNING_OBJECT(eelnmeadec, "invalid nmea: %.*s\n", (int)(mapinfo.size - 2), mapinfo.data);
-
         *telemetry = (GstSonarTelemetry){0};
     }
 
