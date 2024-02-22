@@ -4,6 +4,8 @@
         "fmt",
         "glew",
         "gstreamer",
-        "sdl2"
+        "sdl2",
+        "python3",
+        "openssl"
     ]
   }

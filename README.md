@@ -10,8 +10,11 @@ Easily extentible to other sonars.
 Ubuntu:
 
 ```
-apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good libsdl2-dev libglew-dev
+$ sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good libsdl2-dev libglew-dev
+$ sudo apt-get install curl zip unzip tar
 ```
+
+Second line are requirements when using vcpkg as package manager.
 
 Windows:
 
